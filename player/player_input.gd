@@ -19,6 +19,8 @@ const AIM_DEADZONE := 2.0
 
 ## When false, nothing is read from devices and other code sets the values below.
 @export var use_device := true
+## True while a menu panel is open: no movement and no button presses get through.
+var blocked := false
 
 ## Desired movement direction. Length is 0 (no input) to 1.
 var move := Vector2.ZERO
@@ -35,6 +37,15 @@ var _swap_buffer := 0.0
 
 ## Called by the Player at the start of every physics tick.
 func update(delta: float) -> void:
+	if blocked:
+		# A menu is open: the character stands still and ignores keys and clicks.
+		move = Vector2.ZERO
+		attack_held = false
+		_dash_buffer = 0.0
+		_attack_buffer = 0.0
+		_interact_buffer = 0.0
+		_swap_buffer = 0.0
+		return
 	_dash_buffer = maxf(0.0, _dash_buffer - delta)
 	_attack_buffer = maxf(0.0, _attack_buffer - delta)
 	_interact_buffer = maxf(0.0, _interact_buffer - delta)

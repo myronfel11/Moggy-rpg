@@ -35,6 +35,9 @@ func _ready() -> void:
 	get_tree().create_timer(TIMEOUT).timeout.connect(func() -> void: _finish("timed out"))
 	_main = MAIN.instantiate() as Main
 	add_child(_main)
+	# Never read or write the real save file.
+	_main.profile.persistent = false
+	_main.profile.reset()
 	if role == "host":
 		await _run_host(port)
 	elif role == "client":

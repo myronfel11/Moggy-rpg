@@ -1,12 +1,13 @@
 class_name Hud
 extends CanvasLayer
-## On-screen display: health, dash cooldown, wave, materials, crafting goal, weapon.
+## On-screen display: health, dash cooldown, wave, materials, crafting goal, weapon, and
+## the prompt of whatever station the player is standing at.
 ##
 ## A CanvasLayer draws on top of the game and ignores the camera, so it stays fixed on
 ## screen. The HUD only listens to signals and reads values; it never changes gameplay.
 ##
 ## The goal line at the top is the important part for the game's loop: it always shows
-## what the player is working toward and how far along they are.
+## what the player is working toward and how far along they are, in the hub and on missions.
 
 const READY_COLOR := Color(0.3, 1.0, 0.85)
 const GAIN_COLOR := Color(1.0, 1.0, 0.4)
@@ -15,7 +16,8 @@ const TOAST_TIME := 2.2
 const TOAST_FADE_TIME := 0.4
 
 var _player: Player
-var _station: CraftingStation
+var _book: RecipeBook
+var _director: WaveDirector
 var _health_width := 0.0
 var _dash_width := 0.0
 ## One text label per material, created the first time that material is picked up.
@@ -39,60 +41,79 @@ func _ready() -> void:
 	_dash_width = _dash_fill.size.x
 
 
-## Connects the HUD to the player, wave director and crafting station it should display.
-func bind(player: Player, director: WaveDirector, station: CraftingStation) -> void:
+## Connects the HUD to this machine's player, the recipe book for the goal line, and the
+## level's wave director (null in the hub).
+func bind(player: Player, book: RecipeBook, director: WaveDirector = null) -> void:
 	_player = player
-	_station = station
+	_book = book
+	_director = director
 	player.health.changed.connect(_on_health_changed)
 	player.died.connect(_on_player_died)
 	player.respawned.connect(_on_player_respawned)
 	player.inventory.changed.connect(_on_inventory_changed)
-	player.weapon_changed.connect(_on_weapon_changed)
-	director.wave_started.connect(_on_wave_started)
-	station.player_entered.connect(_on_station_presence_changed)
-	station.player_exited.connect(_on_station_presence_changed)
-	station.crafted.connect(_on_crafted)
+	player.weapon_changed.connect(func(_data: WeaponData) -> void: _refresh_weapon())
+	player.loadout_changed.connect(_refresh_weapon)
+	player.weapon_unlocked.connect(_on_weapon_unlocked)
+	_wave_label.visible = director != null
+	if director != null:
+		director.wave_started.connect(_on_wave_started)
+		if director.wave > 0:
+			_on_wave_started(director.wave, 0)
+	for item in player.inventory.get_items():
+		_on_inventory_changed(item, player.inventory.get_count(item), 0)
 	_on_health_changed(player.health.current, player.health.max_health)
 	_refresh_weapon()
-	_refresh_crafting()
+	_refresh_goal()
+
+
+## Shows a short message in the middle of the screen (teammate joined, crafted, ...).
+func show_message(text: String) -> void:
+	_show_toast(text)
 
 
 func _process(_delta: float) -> void:
-	if _player != null:
-		_dash_fill.size.x = _dash_width * _player.get_dash_ready_ratio()
-
-
-## Updates the goal line and the prompt shown while standing at the station.
-func _refresh_crafting() -> void:
-	if _player == null or _station == null:
+	if _player == null or not is_instance_valid(_player):
 		return
-	_prompt_label.visible = _station.is_in_range(_player)
-	var recipe := _station.get_next_recipe(_player)
+	_dash_fill.size.x = _dash_width * _player.get_dash_ready_ratio()
+	_refresh_prompt()
+
+
+## Shows the prompt of the station the player is standing at, if any.
+func _refresh_prompt() -> void:
+	var prompt := ""
+	for node in get_tree().get_nodes_in_group(&"stations"):
+		var station := node as Station
+		if station != null and station.is_in_range(_player):
+			prompt = station.get_prompt(_player)
+			break
+	_prompt_label.visible = prompt != ""
+	_prompt_label.text = prompt
+	_prompt_label.modulate = READY_COLOR if prompt.begins_with("[E]") else Color.WHITE
+
+
+## Updates the goal line: the next recipe and how far along the player is.
+func _refresh_goal() -> void:
+	if _player == null or _book == null:
+		_goal_label.text = ""
+		return
+	var recipe := _book.get_next(_player)
 	if recipe == null:
 		_goal_label.text = "ALL GEAR CRAFTED"
 		_goal_label.modulate = Color.WHITE
-		_prompt_label.text = "Nothing left to craft"
-		_prompt_label.modulate = Color.WHITE
 		return
 	var progress := PackedStringArray()
-	var missing := PackedStringArray()
+	var all_ready := true
 	for cost in recipe.costs:
 		var have := _player.inventory.get_count(cost.item)
-		var item_name := cost.item.display_name
-		progress.append("%s %d/%d" % [item_name, mini(have, cost.amount), cost.amount])
-		if have < cost.amount:
-			missing.append("%d %s" % [cost.amount - have, item_name])
+		progress.append("%s %d/%d" % [cost.item.display_name, mini(have, cost.amount), cost.amount])
+		all_ready = all_ready and have >= cost.amount
 	var weapon_name := recipe.result.display_name
-	if missing.is_empty():
+	if all_ready:
 		_goal_label.text = "GOAL: %s   READY - craft at the Fabricator" % weapon_name
 		_goal_label.modulate = READY_COLOR
-		_prompt_label.text = "[E] Craft %s" % weapon_name
-		_prompt_label.modulate = READY_COLOR
 	else:
 		_goal_label.text = "GOAL: %s   %s" % [weapon_name, "   ".join(progress)]
 		_goal_label.modulate = Color.WHITE
-		_prompt_label.text = "%s needs %s more" % [weapon_name, " and ".join(missing)]
-		_prompt_label.modulate = Color.WHITE
 
 
 func _refresh_weapon() -> void:
@@ -100,7 +121,7 @@ func _refresh_weapon() -> void:
 		_weapon_label.text = ""
 		return
 	var text := _player.weapon.data.display_name
-	if _player.weapons.size() > 1:
+	if _player.loadout.size() > 1:
 		text += "   [Q] swap"
 	_weapon_label.text = text
 
@@ -122,11 +143,6 @@ func _get_inventory_row(item: ItemData) -> Label:
 	_inventory_list.add_child(row)
 	_inventory_rows[item.id] = label
 	return label
-
-
-## Shows a short message in the middle of the screen (teammate joined, crafted, ...).
-func show_message(text: String) -> void:
-	_show_toast(text)
 
 
 func _show_toast(text: String) -> void:
@@ -152,28 +168,20 @@ func _on_inventory_changed(item: ItemData, count: int, change: int) -> void:
 		# Brief highlight so a pickup is noticed without looking away from the fight.
 		label.modulate = GAIN_COLOR
 		label.create_tween().tween_property(label, "modulate", Color.WHITE, GAIN_FLASH_TIME)
-	_refresh_crafting()
+	_refresh_goal()
 
 
-func _on_weapon_changed(_data: WeaponData) -> void:
-	_refresh_weapon()
-
-
-func _on_station_presence_changed(player: Player) -> void:
-	if player == _player:
-		_refresh_crafting()
-
-
-func _on_crafted(player: Player, recipe: Recipe) -> void:
-	if player != _player:
-		return
-	_show_toast("CRAFTED: %s" % recipe.result.display_name.to_upper())
-	_refresh_weapon()
-	_refresh_crafting()
+func _on_weapon_unlocked(data: WeaponData) -> void:
+	if _player.loadout.has(data):
+		_show_toast("CRAFTED: %s" % data.display_name.to_upper())
+	else:
+		_show_toast("CRAFTED: %s - equip it at the Armory" % data.display_name.to_upper())
+	_refresh_goal()
 
 
 func _on_wave_started(number: int, _enemy_count: int) -> void:
-	_wave_label.text = "WAVE %d" % number
+	var final_wave := _director.get_final_wave() if _director != null else 0
+	_wave_label.text = "WAVE %d/%d" % [number, final_wave] if final_wave > 0 else "WAVE %d" % number
 
 
 func _on_player_died() -> void:

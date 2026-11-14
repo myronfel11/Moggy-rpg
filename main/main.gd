@@ -1,16 +1,23 @@
 class_name Main
 extends Node
-## Entry point: a small menu to play solo, host, or join, then loads the arena.
+## Entry point: a small menu to play solo, host, or join, then loads the hub.
 ##
-## The host adds the arena under World; the LevelSpawner copies it to every client that
-## joins. Command-line shortcuts skip the menu (used by tools\host.cmd, tools\join.cmd and
-## the network test): -- --solo, -- --host, -- --join=ADDRESS, plus --port=N.
+## The host decides which level everyone is in (hub or a mission) and adds it under World;
+## the LevelSpawner copies it to every client, including ones that join later. Levels ask
+## to travel with change_level_requested; only the host acts on it.
+##
+## Command-line shortcuts skip the menu (used by tools\host.cmd, tools\join.cmd and the
+## tests): -- --solo, -- --host, -- --join=ADDRESS, --port=N.
+## Save file options: --profile=NAME (separate save, e.g. a second window on one PC) and
+## --no-save (keep progress in memory only).
 
 const ARENA := preload("res://levels/test_arena/test_arena.tscn")
+const HUB := preload("res://levels/hub/hub.tscn")
 
 var _port := NetworkSession.DEFAULT_PORT
 
 @onready var session: NetworkSession = $NetworkSession
+@onready var profile: PlayerProfile = $Profile
 @onready var world: Node = $World
 @onready var _spawner: MultiplayerSpawner = $LevelSpawner
 @onready var _menu: CanvasLayer = $Menu
@@ -20,7 +27,9 @@ var _port := NetworkSession.DEFAULT_PORT
 
 
 func _ready() -> void:
+	_spawner.spawn_function = _build_level
 	_spawner.add_spawnable_scene(ARENA.resource_path)
+	_spawner.add_spawnable_scene(HUB.resource_path)
 	$Menu/Panel/Solo.pressed.connect(start_solo)
 	$Menu/Panel/Host.pressed.connect(start_host)
 	$Menu/Panel/Join.pressed.connect(func() -> void: start_join(_address.text))
@@ -29,7 +38,7 @@ func _ready() -> void:
 	session.connected.connect(func() -> void: _menu.visible = false)
 	session.failed.connect(_back_to_menu)
 	session.ended.connect(_back_to_menu)
-	session.steam_hosted.connect(_load_arena)
+	session.steam_hosted.connect(_load_hub)
 	session.steam_games_found.connect(_show_steam_games)
 	session.steam_join_requested.connect(start_steam_join)
 	multiplayer.peer_connected.connect(func(id: int) -> void: print("Peer connected: ", id))
@@ -37,6 +46,12 @@ func _ready() -> void:
 
 	var join_address := ""
 	var mode := ""
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--profile="):
+			profile.save_path = "user://profile_%s.json" % argument.trim_prefix("--profile=").validate_filename()
+		elif argument == "--no-save":
+			profile.persistent = false
+	profile.load_from_disk()
 	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--port="):
 			_port = int(argument.trim_prefix("--port="))
@@ -54,14 +69,22 @@ func _ready() -> void:
 			start_join(join_address)
 
 
-## The arena currently loaded, or null while on the menu.
+## The level currently loaded (hub or mission), or null while on the menu.
+func get_level() -> Level:
+	for child in world.get_children():
+		if child is Level and not child.is_queued_for_deletion():
+			return child
+	return null
+
+
+## The mission arena currently loaded, or null.
 func get_arena() -> Arena:
-	return world.get_child(0) as Arena if world.get_child_count() > 0 else null
+	return get_level() as Arena
 
 
 func start_solo() -> void:
 	session.leave()
-	_load_arena()
+	_load_hub()
 
 
 func start_host() -> void:
@@ -70,7 +93,7 @@ func start_host() -> void:
 		_status.text = "Could not host on port %d (error %d)" % [_port, error]
 		return
 	print("Hosting on port ", _port)
-	_load_arena()
+	_load_hub()
 
 
 func start_join(address: String) -> void:
@@ -122,10 +145,32 @@ func _clear_steam_games() -> void:
 		child.queue_free()
 
 
-func _load_arena() -> void:
+func _load_hub() -> void:
+	change_level(HUB.resource_path)
+
+
+## Replaces the current level for everyone. Host only (offline counts as host).
+func change_level(scene_path: String, mission_path := "") -> void:
+	if not multiplayer.is_server():
+		return
+	profile.save_to_disk()
 	_clear_world()
-	world.add_child(ARENA.instantiate(), true)
+	var data := {"scene": scene_path, "mission": mission_path}
+	var level: Level
+	if multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
+		level = _build_level(data)
+		world.add_child(level, true)
+	else:
+		level = _spawner.spawn(data) as Level
+	level.change_level_requested.connect(change_level)
 	_menu.visible = false
+
+
+## Builds a level from spawn data. Runs on the host and on every client.
+func _build_level(data: Dictionary) -> Node:
+	var level := (load(data.scene) as PackedScene).instantiate() as Level
+	level.mission_path = data.get("mission", "")
+	return level
 
 
 func _clear_world() -> void:
@@ -135,6 +180,7 @@ func _clear_world() -> void:
 
 
 func _back_to_menu(reason := "") -> void:
+	profile.save_to_disk()
 	_clear_world()
 	_menu.visible = true
 	_status.text = reason

@@ -2,12 +2,17 @@ class_name WaveDirector
 extends Node
 ## Spawns waves of enemies so there is always something to fight.
 ##
-## Milestone scaffolding: each wave is one enemy larger than the last, up to a cap.
-## Only the host runs waves; clients just hear which wave started. A dead player comes
-## back after revive_delay while a teammate is still up. If everyone is down at once,
-## the run resets to wave 1. Real missions will replace this later.
+## Each wave is one enemy larger than the last, up to a cap. Only the host runs waves;
+## clients just hear which wave started. A dead player comes back after revive_delay while
+## a teammate is still up.
+##
+## With a mission applied: clearing its last wave ends it as a success, and everyone down
+## at once ends it as a failure. Without one (tests, balance probe) waves never end and
+## everyone down resets to wave 1.
 
 signal wave_started(number: int, enemy_count: int)
+## Host only: the mission is over.
+signal mission_ended(success: bool)
 
 ## The enemy to spawn.
 @export var enemy_type: EnemyData
@@ -32,6 +37,7 @@ signal wave_started(number: int, enemy_count: int)
 
 var wave := 0
 
+var _mission: MissionData
 var _arena: Arena
 var _spawn_positions: Array[Vector2] = []
 var _alive := 0
@@ -50,6 +56,22 @@ func setup(arena: Arena, spawn_points: Node) -> void:
 	arena.player_spawned.connect(func(player: Player) -> void:
 		player.died.connect(_on_player_died.bind(player))
 	)
+
+
+## Takes enemies, wave sizes and the end condition from a mission.
+func apply_mission(mission: MissionData) -> void:
+	_mission = mission
+	enemy_type = mission.enemy_type
+	elite_type = mission.elite_type
+	elite_from_wave = mission.elite_from_wave
+	first_wave_size = mission.first_wave_size
+	wave_growth = mission.wave_growth
+	max_wave_size = mission.max_wave_size
+
+
+## The last wave of the mission, or 0 if waves never end.
+func get_final_wave() -> int:
+	return _mission.waves_to_clear if _mission != null else 0
 
 
 ## Begins spawning waves from wave 1. Host only.
@@ -117,7 +139,11 @@ func _pick_spawn_positions(count: int) -> Array[Vector2]:
 
 func _on_enemy_died(_enemy: Enemy) -> void:
 	_alive -= 1
-	if _running and _alive <= 0:
+	if not _running or _alive > 0:
+		return
+	if get_final_wave() > 0 and wave >= get_final_wave():
+		_end_mission(true)
+	else:
 		_after(time_between_waves, _next_wave)
 
 
@@ -128,7 +154,16 @@ func _on_player_died(player: Player) -> void:
 		if other.is_alive():
 			_after(revive_delay, _revive.bind(player))
 			return
-	_after(respawn_delay, _reset_run)
+	if _mission != null:
+		_end_mission(false)
+	else:
+		_after(respawn_delay, _reset_run)
+
+
+func _end_mission(success: bool) -> void:
+	_running = false
+	_run_id += 1
+	mission_ended.emit(success)
 
 
 func _revive(player: Player) -> void:

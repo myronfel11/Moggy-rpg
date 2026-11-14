@@ -1,0 +1,39 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://levels/hub/navigation_console.gd" id="1_console"]
+[ext_resource type="Script" path="res://levels/common/wall_block.gd" id="2_wall"]
+[ext_resource type="Script" path="res://missions/mission_data.gd" id="3_mission"]
+[ext_resource type="Resource" path="res://missions/data/scrapyard_sweep.tres" id="4_sweep"]
+[ext_resource type="Resource" path="res://missions/data/brute_patrol.tres" id="5_patrol"]
+[ext_resource type="Resource" path="res://missions/data/endless_siege.tres" id="6_siege"]
+
+[sub_resource type="CircleShape2D" id="shape_range"]
+radius = 34.0
+
+[node name="NavigationConsole" type="Node2D"]
+script = ExtResource("1_console")
+missions = Array[ExtResource("3_mission")]([ExtResource("4_sweep"), ExtResource("5_patrol"), ExtResource("6_siege")])
+
+[node name="Body" type="StaticBody2D" parent="."]
+script = ExtResource("2_wall")
+size = Vector2(40, 14)
+fill_color = Color(0.1, 0.06, 0.24, 1)
+edge_color = Color(1, 0.35, 0.75, 1)
+
+[node name="Range" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Range"]
+shape = SubResource("shape_range")
+
+[node name="NameLabel" type="Label" parent="."]
+modulate = Color(1, 0.35, 0.75, 0.85)
+offset_left = -40.0
+offset_top = -22.0
+offset_right = 40.0
+offset_bottom = -8.0
+theme_override_font_sizes/font_size = 8
+text = "NAVIGATION"
+horizontal_alignment = 1

@@ -2,12 +2,16 @@
 
 [ext_resource type="Script" path="res://main/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://net/network_session.gd" id="2_session"]
+[ext_resource type="Script" path="res://player/player_profile.gd" id="3_profile"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1_main")
 
 [node name="NetworkSession" type="Node" parent="."]
 script = ExtResource("2_session")
+
+[node name="Profile" type="Node" parent="."]
+script = ExtResource("3_profile")
 
 [node name="World" type="Node" parent="."]
 

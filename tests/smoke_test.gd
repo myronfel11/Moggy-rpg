@@ -45,7 +45,10 @@ func _run() -> void:
 	add_child(arena)
 	var player := (arena as Arena).local_player
 	var director := arena.get_node(^"WaveDirector") as WaveDirector
-	var station := arena.get_node(^"CraftingStation") as CraftingStation
+	# The Fabricator lives in the hub now; put one in the arena for these tests.
+	var station := preload("res://crafting/crafting_station.tscn").instantiate() as CraftingStation
+	station.position = Vector2(320.0, 96.0)
+	arena.add_child(station)
 	player.input.use_device = false
 	await _frames(2)
 
@@ -266,7 +269,7 @@ func _test_loot(player: Player, director: WaveDirector) -> void:
 
 func _test_crafting(player: Player, station: CraftingStation) -> void:
 	print("Crafting")
-	var recipe := station.recipes[0]
+	var recipe := station.recipe_book.recipes[0]
 	var starter := player.weapon.data
 	player.input.press_interact()
 	await _frames(3)

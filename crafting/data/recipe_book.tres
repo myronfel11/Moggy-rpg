@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="RecipeBook" format=3]
+
+[ext_resource type="Script" path="res://crafting/recipe_book.gd" id="1_book"]
+[ext_resource type="Script" path="res://crafting/recipe.gd" id="2_recipe"]
+[ext_resource type="Resource" path="res://crafting/data/breaker_recipe.tres" id="3_breaker"]
+
+[resource]
+script = ExtResource("1_book")
+recipes = Array[ExtResource("2_recipe")]([ExtResource("3_breaker")])
