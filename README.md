@@ -41,17 +41,22 @@ Working together on GitHub and playing online from different homes: [docs/CONTRI
 | Aim | Mouse |
 | Attack | Left mouse button (hold to keep swinging) |
 | Dash | Space |
-| Craft at the Fabricator | E (while standing next to it) |
+| Use a station (Navigation, Fabricator, Armory) | E (while standing next to it) |
 | Swap weapon | Q |
 | Back to menu / quit from menu | Esc |
 
 ## What is in the prototype
 
-Fight waves of enemies in one room. Enemies drop materials, which fly to you when you get
-close. The line at the top of the screen shows what you are saving up for. Take the
-materials to the Fabricator to craft the Breaker, a heavy hammer. From wave 3, armoured
-Plated Brutes appear: the starter blade barely scratches them and the Breaker does not.
-Dying sends you back to wave 1 but you keep your materials and weapons.
+You start in the **hub**, a safe room with three areas (walk up and press E):
+
+- **Navigation:** pick a mission. In co-op only the host can start it; everyone goes along.
+- **Fabricator:** turn materials into gear (the Breaker, a heavy hammer).
+- **Armory:** choose your character (colour only for now) and the two weapons you carry.
+
+Missions are waves of enemies. Enemies drop materials, which fly to you when you get close.
+The line at the top of the screen shows what you are saving up for. Armoured Plated Brutes
+shrug off the starter blade but not the Breaker. Clear the last wave, or all go down, and
+everyone returns to the hub keeping what they collected. Progress is saved on your PC.
 
 ## How the code is organised
 
@@ -63,6 +68,8 @@ player/      The player scene, movement and dash, the input layer, the inventory
 weapons/     WeaponData (stats) + reusable attack behaviours + weapon data files
 enemies/     EnemyData (stats) + enemy behaviours + enemy scenes + enemy data files
 items/       ItemData (a material) + material data files
+missions/    MissionData + mission data files (waves, enemies, length)
+characters/  CharacterData + character data files
 loot/        Drop lists and the pickups that lie on the ground
 crafting/    Recipes and the crafting station
 levels/      Rooms and the pieces they are built from

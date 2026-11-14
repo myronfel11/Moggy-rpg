@@ -174,7 +174,8 @@ func _test_mission_failure() -> void:
 	hub.start_mission(load(PATROL) as MissionData)
 	var arrived := await _until(func() -> bool: return _main.get_arena() != null and _player() != null, 300)
 	_check(arrived, "a second mission starts")
-	await _frames(10)
+	var director := _main.get_arena().get_node(^"WaveDirector") as WaveDirector
+	await _until(func() -> bool: return director.wave >= 1, 300)
 	_player().hurtbox.receive_hit(HitInfo.new(1000000.0))
 	var back := await _until(func() -> bool: return _main.get_level() is Hub and _player() != null, 600)
 	_check(back, "everyone down ends the mission and returns to the hub")

@@ -144,14 +144,16 @@ func is_local() -> bool:
 func unlock_weapon(data: WeaponData) -> void:
 	if data == null:
 		return
-	if not owns_weapon(data):
+	var is_new := not owns_weapon(data)
+	if is_new:
 		weapons.append(data)
-		weapon_unlocked.emit(data)
 	if not _loadout_has(data) and loadout.size() < LOADOUT_SLOTS:
 		loadout.append(data)
 		loadout_changed.emit()
 	if _loadout_has(data):
 		equip(data)
+	if is_new:
+		weapon_unlocked.emit(data)
 
 
 ## Replaces owned weapons and loadout at once (loading a saved profile).

@@ -8,6 +8,8 @@ extends Level
 
 ## Seconds the "mission complete/failed" message shows before returning to the hub.
 const END_DELAY := 4.0
+## Seconds between arriving and the first wave.
+const START_DELAY := 2.0
 
 ## Tests switch this off so they can spawn enemies themselves.
 @export var auto_start := true
@@ -28,7 +30,13 @@ func _setup_level() -> void:
 
 
 func _start_level() -> void:
-	if auto_start:
+	if not auto_start:
+		return
+	# A moment to get bearings, and time for every client to finish building this level
+	# before the host's first wave messages reach it.
+	_hud.show_message(mission.display_name.to_upper() if mission != null else "GET READY")
+	await get_tree().create_timer(START_DELAY, false).timeout
+	if is_inside_tree():
 		_director.start()
 
 

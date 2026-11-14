@@ -113,6 +113,9 @@ a clear message instead of misbehaving.
 
 Run it once over Steam and once over Tailscale.
 
+1. Both arrive in the hub. Each uses the Armory (different character) and the Fabricator;
+   the other sees the new character. Only the host can start a mission; both travel.
+   Clear a mission and fail one: both return to the hub with their loot.
 1. Both players see each other move, aim, swing and dash.
 2. Enemies and attack warnings match on both screens; a dodge that worked for you counts.
 3. Each player damages and kills enemies; both get the same drops.

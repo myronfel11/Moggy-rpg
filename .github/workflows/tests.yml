@@ -31,3 +31,6 @@ jobs:
 
       - name: Smoke test
         run: ./godot --headless --fixed-fps 60 --path . res://tests/smoke_test.tscn
+
+      - name: Hub test
+        run: ./godot --headless --fixed-fps 60 --path . res://tests/hub_test.tscn
