@@ -66,12 +66,14 @@ Two developers in different homes (decision D-19).
 
 - 🟡 GitHub workflow, `tools\setup.cmd` for new PCs, `docs/CONTRIBUTING.md`
 - 🟡 Tests run automatically on pull requests (GitHub Actions)
-- ⬜ Repository on GitHub and second developer invited (needs your GitHub sign-in)
-- ⬜ First internet session over Tailscale (no code; checklist in CONTRIBUTING)
+- ✅ Repository on GitHub (myronfel11/Moggy-rpg); tests run there
+- ⬜ Second developer invited and set up
+- ⬜ First internet session (checklist in CONTRIBUTING)
 - ✅ Version check on join, 10 s join timeout, teammate joined/left messages
 - ✅ Late joiners see enemies' real health
 - ✅ Both players get the same drops from a kill (host rolls once)
-- ⬜ Steam relay: host with Steam, find and join games through Steam (GodotSteam)
+- 🟡 Steam relay: host with Steam, find and join games through Steam (GodotSteam).
+  Host and search verified on one PC; a real two-account connection is not yet tested.
 - ⬜ Internet tuning, only for problems the playtests show
 
 ## Phase 4: Combat depth ⬜

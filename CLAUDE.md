@@ -82,6 +82,10 @@ What cannot be verified from here: how the game *feels*. Say so, and ask the use
   - A new synced value goes in that scene's `Sync` node (`SceneReplicationConfig`).
   - A new enemy brain must override `_puppet_think` to show telegraphs on clients.
   - Visual one-off events from the host use `@rpc("authority", "call_remote")`.
+  - Steam (GodotSteam add-on in `addons/godotsteam/`) is reached only through
+    `NetworkSession` with `Engine.get_singleton("Steam")` and `call()`, and only after a
+    Steam button is pressed. Never start Steam in tests or at game start.
+    `tests/steam_check.tscn` is a manual one-PC check that needs Steam running.
   - Loot is rolled once by the host (`Enemy.roll_drops`) and sent with the death RPC;
     every peer spawns its own copy of the same pieces. Never roll randomness on clients.
   - Player intent goes through `PlayerInput`; gameplay code never reads `Input` directly.
