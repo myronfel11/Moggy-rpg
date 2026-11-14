@@ -23,6 +23,23 @@ radius = 12.0
 [sub_resource type="CircleShape2D" id="shape_hitbox"]
 radius = 13.0
 
+[sub_resource type="SceneReplicationConfig" id="sync_config"]
+properties/0/path = NodePath(".:net_position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:brain_time")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:lunge_direction")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+properties/3/path = NodePath(".:brain")
+properties/3/spawn = true
+properties/3/replication_mode = 2
+properties/4/path = NodePath("HealthComponent:current")
+properties/4/spawn = true
+properties/4/replication_mode = 2
+
 [node name="PlatedBrute" type="CharacterBody2D"]
 collision_layer = 4
 collision_mask = 5
@@ -60,6 +77,7 @@ collision_mask = 0
 monitoring = false
 script = ExtResource("5_hurtbox")
 health = NodePath("../HealthComponent")
+forward_hits_to_authority = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
 shape = SubResource("shape_hurtbox")
@@ -78,3 +96,6 @@ position = Vector2(0, -18)
 script = ExtResource("7_bar")
 health = NodePath("../HealthComponent")
 width = 22.0
+
+[node name="Sync" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("sync_config")

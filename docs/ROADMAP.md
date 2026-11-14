@@ -46,15 +46,19 @@ Known rough edges carried forward:
 - Dying and replaying waves 1 and 2 is an efficient way to farm. Missions with their own
   rewards (Phase 5) replace the endless-wave room.
 
-## Phase 3: Co-op foundation ⬜
+## Phase 3: Co-op foundation 🟡
 
 Placed here on purpose: the game is still tiny, so adding networking touches little code, and
-everything after this point is built networked from the start. Needs the multiplayer scope
-confirmed first (decision D-04).
+everything after this point is built networked from the start. Scope: decision D-04.
 
-- ⬜ Host and join a session, players see each other move and fight
-- ⬜ Host-controlled enemies, damage and drops
-- ⬜ Per-player loot and inventory
+- 🟡 Menu: play solo, host, or join by IP (`tools\host.cmd`, `tools\join.cmd` skip it)
+- 🟡 Each peer owns and drives its own player; others see it move, aim, swing and dash
+- 🟡 Host runs enemies and waves; clients see the same enemies and telegraphs
+- 🟡 Client hits on enemies are applied by the host; enemy hits are decided by the victim
+- 🟡 Every peer rolls its own loot (per-player drops and inventory)
+- 🟡 Downed players come back after 5 s while a teammate is up; all down resets the run
+- ✅ Automated two-process co-op test in `tools\test.cmd`
+- ⬜ **Your two-window playtest** (see README, "Co-op")
 
 ## Phase 4: Combat depth ⬜
 

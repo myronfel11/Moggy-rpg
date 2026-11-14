@@ -1,0 +1,52 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://main/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://net/network_session.gd" id="2_session"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_main")
+
+[node name="NetworkSession" type="Node" parent="."]
+script = ExtResource("2_session")
+
+[node name="World" type="Node" parent="."]
+
+[node name="LevelSpawner" type="MultiplayerSpawner" parent="."]
+spawn_path = NodePath("../World")
+
+[node name="Menu" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="Panel" type="VBoxContainer" parent="Menu"]
+offset_left = 160.0
+offset_top = 70.0
+offset_right = 320.0
+offset_bottom = 220.0
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="Menu/Panel"]
+theme_override_font_sizes/font_size = 16
+text = "ACTION RPG PROTOTYPE"
+horizontal_alignment = 1
+
+[node name="Solo" type="Button" parent="Menu/Panel"]
+theme_override_font_sizes/font_size = 8
+text = "Play solo"
+
+[node name="Host" type="Button" parent="Menu/Panel"]
+theme_override_font_sizes/font_size = 8
+text = "Host co-op"
+
+[node name="Address" type="LineEdit" parent="Menu/Panel"]
+theme_override_font_sizes/font_size = 8
+text = "127.0.0.1"
+placeholder_text = "Host address"
+
+[node name="Join" type="Button" parent="Menu/Panel"]
+theme_override_font_sizes/font_size = 8
+text = "Join co-op"
+
+[node name="Status" type="Label" parent="Menu/Panel"]
+theme_override_font_sizes/font_size = 8
+horizontal_alignment = 1
+autowrap_mode = 2

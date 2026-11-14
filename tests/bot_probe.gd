@@ -62,7 +62,7 @@ func _ready() -> void:
 	var arena := ARENA.instantiate()
 	arena.set(&"auto_start", false)
 	add_child(arena)
-	var player := arena.get_node(^"Entities/Player") as Player
+	var player := (arena as Arena).local_player
 	var director := arena.get_node(^"WaveDirector") as WaveDirector
 	var station := arena.get_node(^"CraftingStation") as CraftingStation
 	player.input.use_device = false

@@ -51,7 +51,8 @@ func try_craft(player: Player) -> bool:
 
 func _on_body_entered(body: Node2D) -> void:
 	var player := body as Player
-	if player == null or _players_in_range.has(player):
+	# Crafting changes the inventory, which only the player's own peer may do.
+	if player == null or not player.is_local() or _players_in_range.has(player):
 		return
 	_players_in_range.append(player)
 	player.interact_requested.connect(_on_interact_requested)

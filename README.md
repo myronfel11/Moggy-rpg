@@ -15,6 +15,15 @@ Everything runs from the `tools` folder (double-click, or run from a terminal):
 | `tools\play.cmd` | Runs the game. |
 | `tools\editor.cmd` | Opens the project in the Godot editor. Press F5 there to play. |
 | `tools\test.cmd` | Runs all automated tests without opening a window. |
+| `tools\host.cmd` | Starts a co-op game as host. |
+| `tools\join.cmd [address]` | Joins a co-op game (this PC if no address is given). |
+
+### Co-op
+
+`play.cmd` opens a menu: play solo, host, or join by IP address. To try co-op on one PC,
+run `host.cmd`, then `join.cmd`; two windows open and each controls its own character
+(click a window to give it the keyboard). Over a LAN, the joiner types the host PC's IP
+address in the menu. The host's firewall must allow the game on UDP port 24565.
 
 The engine itself lives in `tools/godot/` and is not committed to git. On a new machine,
 download Godot 4.4.1 (standard, not .NET) and unzip it there.
@@ -29,7 +38,7 @@ download Godot 4.4.1 (standard, not .NET) and unzip it there.
 | Dash | Space |
 | Craft at the Fabricator | E (while standing next to it) |
 | Swap weapon | Q |
-| Quit | Esc |
+| Back to menu / quit from menu | Esc |
 
 ## What is in the prototype
 
@@ -42,6 +51,8 @@ Dying sends you back to wave 1 but you keep your materials and weapons.
 ## How the code is organised
 
 ```
+main/        Start menu; loads the arena (solo, host or join)
+net/         Starting, joining and leaving co-op sessions
 core/        Shared building blocks: health, hitbox, hurtbox, camera, hit flash
 player/      The player scene, movement and dash, the input layer, the inventory
 weapons/     WeaponData (stats) + reusable attack behaviours + weapon data files

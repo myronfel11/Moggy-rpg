@@ -3,7 +3,6 @@
 [ext_resource type="Script" path="res://levels/test_arena/test_arena.gd" id="1_arena"]
 [ext_resource type="Script" path="res://levels/common/floor_grid.gd" id="2_floor"]
 [ext_resource type="Script" path="res://levels/common/wall_block.gd" id="3_wall"]
-[ext_resource type="PackedScene" path="res://player/player.tscn" id="4_player"]
 [ext_resource type="Script" path="res://levels/common/wave_director.gd" id="5_director"]
 [ext_resource type="Resource" path="res://enemies/data/scrap_hound.tres" id="6_enemy"]
 [ext_resource type="Script" path="res://core/game_camera.gd" id="7_camera"]
@@ -70,7 +69,10 @@ recipes = Array[ExtResource("11_recipe")]([ExtResource("12_breaker")])
 [node name="Entities" type="Node2D" parent="."]
 y_sort_enabled = true
 
-[node name="Player" parent="Entities" instance=ExtResource("4_player")]
+[node name="EntitySpawner" type="MultiplayerSpawner" parent="."]
+spawn_path = NodePath("../Entities")
+
+[node name="PlayerStart" type="Marker2D" parent="."]
 position = Vector2(320, 192)
 
 [node name="SpawnPoints" type="Node2D" parent="."]

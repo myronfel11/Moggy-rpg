@@ -15,6 +15,8 @@ signal hit_landed(hurtbox: Hurtbox, hit: HitInfo)
 
 var data: WeaponData
 var wielder: CharacterBody2D
+## False on other peers' copies of a player: they show the swing but never deal damage.
+var deals_damage := true
 ## Physics layers this weapon can damage (see core/layers.gd).
 var target_mask := 0
 

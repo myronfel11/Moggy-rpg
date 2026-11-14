@@ -16,4 +16,8 @@ echo === Smoke test (plays the real arena with scripted input) ===
 %GODOT% --headless --fixed-fps 60 --path %PROJECT% res://tests/smoke_test.tscn
 if errorlevel 1 exit /b 1
 
+echo === Co-op test (a host and a client on this PC) ===
+call "%~dp0test_net.cmd"
+if errorlevel 1 exit /b 1
+
 echo === All tests passed ===

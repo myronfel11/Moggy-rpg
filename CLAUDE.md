@@ -47,7 +47,9 @@ adds a byte-order mark to the file.
 When a fix is for a bug that only shows up sometimes, confirm it by switching the fix off
 and seeing the failure come back, and say so plainly if a test cannot reproduce it.
 
-`tools\test.cmd` runs import, unit tests and smoke test in one go.
+`tools\test.cmd` runs import, unit tests, smoke test and the co-op test (`tools\test_net.cmd`:
+a headless host and client on port 24600, logs in `%TEMP%\arpg_net_test`) in one go.
+The game starts at `main/main.tscn` (menu); tests instantiate the arena directly.
 
 What cannot be verified from here: how the game *feels*. Say so, and ask the user to playtest.
 
@@ -64,9 +66,17 @@ What cannot be verified from here: how the game *feels*. Say so, and ask the use
 - **Loot and gear belong to the player.** `Inventory` and the owned-weapons list are on the
   `Player` node. Things in the world (crafting stations) react to the player's
   `interact_requested` signal; they never read input.
-- **Multiplayer-ready.** Co-op is planned (roadmap Phase 3), so:
+- **Co-op.** Authority rules are in `docs/DECISIONS.md` (T-13). In short:
+  - Before changing state, check who owns it: `player.is_local()` for players,
+    `is_multiplayer_authority()` / `multiplayer.is_server()` for enemies and waves.
+    Offline (solo, unit and smoke tests) this machine owns everything, so checks pass.
+  - Create players and enemies only through `Arena` (`spawn_enemy`, player spawning);
+    never `add_child` them directly, or clients will not get them.
+  - A new synced value goes in that scene's `Sync` node (`SceneReplicationConfig`).
+  - A new enemy brain must override `_puppet_think` to show telegraphs on clients.
+  - Visual one-off events from the host use `@rpc("authority", "call_remote")`.
   - Player intent goes through `PlayerInput`; gameplay code never reads `Input` directly.
-  - Never assume one player. Find players through the `players` group.
+  - Never assume one player. Find players through the `players` group or `Arena.get_players()`.
   - No gameplay state in autoload singletons.
   - Effects that only matter to the local screen (shake, flashes) stay out of gameplay logic.
   - Hit-stop is per character (`_hit_stop` timers), never `Engine.time_scale`.

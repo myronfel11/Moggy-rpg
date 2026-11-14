@@ -26,6 +26,10 @@ const GHOST_COLOR := Color(0.35, 0.9, 1.0, 0.55)
 const BLINK_PERIOD := 0.1
 const RESPAWN_PROTECTION := 1.0
 const KILL_SHAKE_BONUS := 0.2
+## How quickly another peer's player glides to its reported position. Higher is snappier.
+const PUPPET_SMOOTHING := 25.0
+## Further off than this (respawn, lag spike), jump instead of gliding. In pixels.
+const PUPPET_SNAP_DISTANCE := 64.0
 
 @export_group("Movement")
 ## Top running speed in pixels per second. One floor tile is 16 pixels.
@@ -53,7 +57,25 @@ const KILL_SHAKE_BONUS := 0.2
 ## Screen shake when the player is hit (0 to 1).
 @export var hurt_shake := 0.6
 
-var state := State.MOVE
+## Synced to other peers, who use it to show dashing, death and respawning.
+var state := State.MOVE:
+	set(value):
+		var was := state
+		state = value
+		if is_node_ready() and not is_local() and was != value:
+			_on_remote_state_changed(was, value)
+## The network peer that controls this player (1 is the host, or solo play).
+var peer_id := 1
+## Where the owner says this player is. Other peers glide toward it.
+var net_position := Vector2.ZERO
+## Where the owner is aiming. Other peers point the weapon this way.
+var net_aim := Vector2.RIGHT
+## The equipped weapon's data file, so other peers show the same weapon.
+var net_weapon_path := "":
+	set(value):
+		net_weapon_path = value
+		if is_node_ready() and not is_local():
+			_equip_from_path(value)
 ## The equipped weapon's behaviour node. Its stats are in weapon.data.
 var weapon: WeaponBehavior
 ## Every weapon this player owns, in the order they were obtained.
@@ -81,8 +103,20 @@ func _ready() -> void:
 	add_to_group(&"players")
 	hurtbox.hit_received.connect(_on_hit_received)
 	health.died.connect(_on_died)
+	var synced_weapon := net_weapon_path
 	if starting_weapon != null:
 		unlock_weapon(starting_weapon)
+	if not is_local():
+		# Another peer's player: they drive it, this machine only displays it.
+		input.use_device = false
+		_equip_from_path(synced_weapon)
+		if state == State.DEAD:
+			_on_remote_state_changed(State.MOVE, State.DEAD)
+
+
+## True if this machine controls this player.
+func is_local() -> bool:
+	return is_multiplayer_authority()
 
 
 ## Adds a weapon to the ones this player owns (if new) and equips it.
@@ -121,8 +155,18 @@ func equip(data: WeaponData) -> void:
 	weapon = data.behavior_scene.instantiate() as WeaponBehavior
 	weapon_pivot.add_child(weapon)
 	weapon.setup(data, self, Layers.ENEMY_HURTBOX)
+	# Only the owner's copy of a weapon decides hits; other peers just show the swing.
+	weapon.deals_damage = is_local()
 	weapon.hit_landed.connect(_on_weapon_hit_landed)
+	if is_local():
+		net_weapon_path = data.resource_path
 	weapon_changed.emit(data)
+
+
+func _equip_from_path(path: String) -> void:
+	if path == "" or (weapon != null and weapon.data.resource_path == path):
+		return
+	equip(load(path) as WeaponData)
 
 
 func is_alive() -> bool:
@@ -138,9 +182,18 @@ func get_dash_ready_ratio() -> float:
 	return 1.0 - _dash_cooldown_left / dash_cooldown
 
 
+## Asks the owner to respawn this player. Sent by the host (wave director).
+@rpc("any_peer", "call_local", "reliable")
+func net_respawn(at: Vector2) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if is_local() and (sender == 0 or sender == 1):
+		respawn(at)
+
+
 ## Brings the player back to life at [param at] with full health.
 func respawn(at: Vector2) -> void:
 	global_position = at
+	net_position = at
 	velocity = Vector2.ZERO
 	health.reset()
 	state = State.MOVE
@@ -153,8 +206,13 @@ func respawn(at: Vector2) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if not is_local():
+		_puppet_process(delta)
+		return
 	# Input is read even while frozen so presses made during hit-stop are not lost.
 	input.update(delta)
+	net_aim = input.aim_direction
+	net_position = global_position
 	if state == State.DEAD:
 		return
 	if _hit_stop > 0.0:
@@ -210,6 +268,7 @@ func _move_state(delta: float) -> void:
 	if weapon != null and input.wants_attack():
 		if weapon.try_attack(input.aim_direction):
 			input.clear_attack()
+			_net_attack.rpc(input.aim_direction)
 
 
 func _start_dash() -> void:
@@ -255,6 +314,49 @@ func _spawn_ghost() -> void:
 	var tween := ghost.create_tween()
 	tween.tween_property(ghost, "modulate:a", 0.0, GHOST_FADE_TIME)
 	tween.tween_callback(ghost.queue_free)
+
+
+## Plays this player's swing on the other peers' copies.
+@rpc("authority", "call_remote", "reliable")
+func _net_attack(aim: Vector2) -> void:
+	if weapon == null:
+		return
+	weapon_pivot.rotation = aim.angle()
+	weapon.try_attack(aim)
+
+
+## Displays another peer's player: glide to where its owner says it is.
+func _puppet_process(delta: float) -> void:
+	if state == State.DEAD:
+		return
+	if global_position.distance_to(net_position) > PUPPET_SNAP_DISTANCE:
+		global_position = net_position
+	else:
+		global_position = global_position.lerp(net_position, 1.0 - exp(-PUPPET_SMOOTHING * delta))
+	if weapon == null or not weapon.is_aim_locked():
+		weapon_pivot.rotation = net_aim.angle()
+		visual.scale.x = -1.0 if net_aim.x < 0.0 else 1.0
+	if state == State.DASH:
+		_ghost_timer -= delta
+		if _ghost_timer <= 0.0:
+			_ghost_timer = GHOST_INTERVAL
+			_spawn_ghost()
+	if weapon != null:
+		weapon.tick(delta)
+
+
+func _on_remote_state_changed(was: State, now: State) -> void:
+	if now == State.DEAD:
+		if weapon != null:
+			weapon.cancel()
+		visual.visible = false
+		weapon_pivot.visible = false
+		died.emit()
+	elif was == State.DEAD:
+		global_position = net_position
+		visual.visible = true
+		weapon_pivot.visible = true
+		respawned.emit()
 
 
 func _shake_camera(amount: float) -> void:

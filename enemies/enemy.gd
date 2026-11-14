@@ -16,6 +16,8 @@ const DEATH_TIME := 0.18
 const GLANCING_RATIO := 0.5
 ## Flash colour for a glancing hit, so the player can see the weapon is not biting.
 const GLANCING_FLASH := Color(0.45, 0.55, 0.75)
+## How quickly a co-op client's copy glides to the host's position. Higher is snappier.
+const PUPPET_SMOOTHING := 25.0
 ## How long an enemy walks along a wall that is blocking it, in seconds.
 const DETOUR_TIME := 0.45
 ## For this long after a detour, hitting the same wall again continues the same way
@@ -26,6 +28,8 @@ const DETOUR_MEMORY := 1.2
 const BLOCKED_SPEED_RATIO := 0.35
 
 var data: EnemyData
+## Where the host says this enemy is. Co-op clients glide toward it.
+var net_position := Vector2.ZERO
 
 var _hit_stop := 0.0
 var _stagger := 0.0
@@ -125,13 +129,18 @@ func _blocking_wall_normal(speed: float) -> Vector2:
 func _physics_process(delta: float) -> void:
 	if _dead:
 		return
-	if _hit_stop > 0.0:
-		_hit_stop -= delta
-		return
 	if _spawn_left > 0.0:
 		_spawn_left -= delta
 		if _spawn_left <= 0.0:
 			hurtbox.invulnerable = false
+		return
+	if not is_multiplayer_authority():
+		# Co-op client: the host decides what this enemy does. Glide to where it says.
+		global_position = global_position.lerp(net_position, 1.0 - exp(-PUPPET_SMOOTHING * delta))
+		_puppet_think(delta)
+		return
+	if _hit_stop > 0.0:
+		_hit_stop -= delta
 		return
 	if _stagger > 0.0:
 		# Stunned: slide to a stop from the knockback, no decisions.
@@ -140,6 +149,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_think(delta)
 	move_and_slide()
+	net_position = global_position
 
 
 ## Rolls each line of the loot list and scatters the results where the enemy died.
@@ -156,6 +166,12 @@ func _drop_loot() -> void:
 
 ## Override: decide what to do this tick by setting [member velocity].
 func _think(_delta: float) -> void:
+	pass
+
+
+## Override: on co-op clients, show what the host's copy is doing (telegraphs, attack
+## hitboxes) using the synced values. Never make decisions here.
+func _puppet_think(_delta: float) -> void:
 	pass
 
 
@@ -178,13 +194,40 @@ func _on_hit_received(hit: HitInfo) -> void:
 	if data.stagger_time > 0.0 and _can_be_interrupted():
 		_stagger = data.stagger_time
 		_on_interrupted()
-	if hit.dealt < hit.damage * GLANCING_RATIO:
+	var glancing := hit.dealt < hit.damage * GLANCING_RATIO
+	_flash_hit(glancing)
+	_net_flash.rpc(glancing)
+
+
+func _flash_hit(glancing: bool) -> void:
+	if glancing:
 		visual.flash(0.12, GLANCING_FLASH)
 	else:
 		visual.flash()
 
 
+@rpc("authority", "call_remote", "unreliable")
+func _net_flash(glancing: bool) -> void:
+	if not _dead:
+		_flash_hit(glancing)
+
+
 func _on_died() -> void:
+	_die()
+	_net_die.rpc()
+	# Only the host removes the enemy; removing it also removes it on every client.
+	get_tree().create_timer(DEATH_TIME, false).timeout.connect(queue_free)
+
+
+## On co-op clients: the host's copy died. Play the death and drop this player's loot.
+@rpc("authority", "call_remote", "reliable")
+func _net_die() -> void:
+	if not _dead:
+		_die()
+
+
+## Everything a death looks like, on every peer. Each peer rolls its own loot.
+func _die() -> void:
 	_dead = true
 	_on_interrupted()
 	collision_layer = 0
@@ -196,4 +239,3 @@ func _on_died() -> void:
 	var tween := create_tween().set_parallel()
 	tween.tween_property(visual, "scale", Vector2(1.6, 1.6), DEATH_TIME)
 	tween.tween_property(visual, "modulate:a", 0.0, DEATH_TIME)
-	tween.chain().tween_callback(queue_free)

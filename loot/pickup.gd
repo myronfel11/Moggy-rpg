@@ -54,7 +54,8 @@ func _player_in_magnet_range() -> Player:
 	var best_distance := MAGNET_RADIUS * MAGNET_RADIUS
 	for node in get_tree().get_nodes_in_group(&"players"):
 		var player := node as Player
-		if player == null or not player.is_alive():
+		# Every peer rolls its own loot, so pickups only go to this machine's player.
+		if player == null or not player.is_alive() or not player.is_local():
 			continue
 		var distance := global_position.distance_squared_to(player.global_position)
 		if distance <= best_distance:

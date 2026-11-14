@@ -2,8 +2,10 @@ class_name WaveDirector
 extends Node
 ## Spawns waves of enemies so there is always something to fight.
 ##
-## Milestone 1 scaffolding: each wave is one enemy larger than the last, up to a cap.
-## When the player dies everything resets. Real missions will replace this later.
+## Milestone scaffolding: each wave is one enemy larger than the last, up to a cap.
+## Only the host runs waves; clients just hear which wave started. A dead player comes
+## back after revive_delay while a teammate is still up. If everyone is down at once,
+## the run resets to wave 1. Real missions will replace this later.
 
 signal wave_started(number: int, enemy_count: int)
 
@@ -21,61 +23,68 @@ signal wave_started(number: int, enemy_count: int)
 @export var max_wave_size := 8
 ## Seconds of calm after a wave is cleared.
 @export var time_between_waves := 1.5
-## Seconds between the player dying and the run restarting.
+## Seconds between everyone being down and the run restarting.
 @export var respawn_delay := 1.5
-## Enemies will not spawn closer to the player than this, in pixels.
+## Seconds a downed player waits to come back while a teammate is still up.
+@export var revive_delay := 5.0
+## Enemies will not spawn closer to any player than this, in pixels.
 @export var min_spawn_distance := 110.0
 
 var wave := 0
 
-var _player: Player
-var _entities: Node2D
+var _arena: Arena
 var _spawn_positions: Array[Vector2] = []
-var _player_start := Vector2.ZERO
 var _alive := 0
 var _running := false
 ## Increases on every reset, so timers started before the reset know to do nothing.
 var _run_id := 0
 
 
-## Tells the director who the player is, where to put enemies, and where they may appear.
-func setup(player: Player, entities: Node2D, spawn_points: Node) -> void:
-	_player = player
-	_entities = entities
-	_player_start = player.global_position
+## Tells the director which arena it runs and where enemies may appear.
+func setup(arena: Arena, spawn_points: Node) -> void:
+	_arena = arena
 	for child in spawn_points.get_children():
 		var marker := child as Node2D
 		if marker != null:
 			_spawn_positions.append(marker.global_position)
-	player.died.connect(_on_player_died)
+	arena.player_spawned.connect(func(player: Player) -> void:
+		player.died.connect(_on_player_died.bind(player))
+	)
 
 
-## Begins spawning waves from wave 1.
+## Begins spawning waves from wave 1. Host only.
 func start() -> void:
+	if not multiplayer.is_server():
+		return
 	_running = true
 	wave = 0
 	_next_wave()
 
 
-## Spawns one enemy. Also used directly by tests.
+## Spawns one enemy on every peer. Host only. Also used directly by tests.
 func spawn_enemy(type: EnemyData, at: Vector2) -> Enemy:
-	var enemy := type.scene.instantiate() as Enemy
-	enemy.data = type
-	enemy.position = at
+	var enemy := _arena.spawn_enemy(type, at)
 	enemy.died.connect(_on_enemy_died)
-	_entities.add_child(enemy)
 	_alive += 1
 	return enemy
 
 
 func _next_wave() -> void:
-	wave += 1
-	var count := mini(first_wave_size + (wave - 1) * wave_growth, max_wave_size)
-	var elites := mini(_elite_count(wave), count)
+	if not multiplayer.is_server():
+		return
+	var number := wave + 1
+	var count := mini(first_wave_size + (number - 1) * wave_growth, max_wave_size)
+	var elites := mini(_elite_count(number), count)
 	var positions := _pick_spawn_positions(count)
 	for i in count:
 		spawn_enemy(elite_type if i < elites else enemy_type, positions[i])
-	wave_started.emit(wave, count)
+	_announce_wave.rpc(number, count)
+
+
+@rpc("authority", "call_local", "reliable")
+func _announce_wave(number: int, count: int) -> void:
+	wave = number
+	wave_started.emit(number, count)
 
 
 ## How many of a wave's enemies are elites. Elites replace regular enemies, they are not extra.
@@ -87,9 +96,14 @@ func _elite_count(wave_number: int) -> int:
 
 
 func _pick_spawn_positions(count: int) -> Array[Vector2]:
+	var players := _arena.get_players()
 	var candidates: Array[Vector2] = []
 	for point in _spawn_positions:
-		if point.distance_to(_player.global_position) >= min_spawn_distance:
+		var far_enough := true
+		for player in players:
+			if player.is_alive() and point.distance_to(player.global_position) < min_spawn_distance:
+				far_enough = false
+		if far_enough:
 			candidates.append(point)
 	if candidates.is_empty():
 		candidates = _spawn_positions.duplicate()
@@ -107,9 +121,19 @@ func _on_enemy_died(_enemy: Enemy) -> void:
 		_after(time_between_waves, _next_wave)
 
 
-func _on_player_died() -> void:
-	if _running:
-		_after(respawn_delay, _reset_run)
+func _on_player_died(player: Player) -> void:
+	if not _running or not multiplayer.is_server():
+		return
+	for other in _arena.get_players():
+		if other.is_alive():
+			_after(revive_delay, _revive.bind(player))
+			return
+	_after(respawn_delay, _reset_run)
+
+
+func _revive(player: Player) -> void:
+	if is_instance_valid(player) and not player.is_alive():
+		player.net_respawn.rpc(_arena.get_player_start())
 
 
 func _reset_run() -> void:
@@ -117,7 +141,10 @@ func _reset_run() -> void:
 	for enemy in get_tree().get_nodes_in_group(&"enemies"):
 		enemy.queue_free()
 	_alive = 0
-	_player.respawn(_player_start)
+	var players := _arena.get_players()
+	for i in players.size():
+		var offset := Vector2(Arena.PLAYER_SPACING * i, 0.0)
+		players[i].net_respawn.rpc(_arena.get_player_start() + offset)
 	start()
 
 

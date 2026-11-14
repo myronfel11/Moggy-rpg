@@ -94,7 +94,8 @@ func get_move_speed_multiplier() -> float:
 
 func _begin_active() -> void:
 	_enter(Phase.ACTIVE, data.active_time)
-	_hitbox.activate(data.damage, data.knockback, data.hit_stop, wielder)
+	if deals_damage:
+		_hitbox.activate(data.damage, data.knockback, data.hit_stop, wielder)
 
 
 func _enter(phase: Phase, duration: float) -> void:

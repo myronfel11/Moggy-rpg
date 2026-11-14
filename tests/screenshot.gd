@@ -31,7 +31,7 @@ func _ready() -> void:
 
 	var arena := ARENA.instantiate()
 	add_child(arena)
-	var player := arena.get_node(^"Entities/Player") as Player
+	var player := (arena as Arena).local_player
 	var station := arena.get_node(^"CraftingStation") as CraftingStation
 	player.input.use_device = false
 
