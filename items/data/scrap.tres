@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemData" format=3]
+
+[ext_resource type="Script" path="res://items/item_data.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+id = &"scrap"
+display_name = "Scrap"
+description = "Salvaged plating and wire. Every machine leaves some behind."
+rarity = 0
+color = Color(0.8, 0.62, 0.42, 1)

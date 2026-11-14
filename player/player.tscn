@@ -1,0 +1,67 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://player/player.gd" id="1_player"]
+[ext_resource type="Resource" path="res://weapons/data/pulse_blade.tres" id="2_weapon"]
+[ext_resource type="Shader" path="res://core/fx/hit_flash.gdshader" id="3_flash"]
+[ext_resource type="Script" path="res://core/fx/flash_visual.gd" id="4_visual"]
+[ext_resource type="Script" path="res://player/player_input.gd" id="5_input"]
+[ext_resource type="Script" path="res://core/components/health_component.gd" id="6_health"]
+[ext_resource type="Script" path="res://core/components/hurtbox.gd" id="7_hurtbox"]
+[ext_resource type="Script" path="res://player/inventory.gd" id="8_inventory"]
+
+[sub_resource type="CircleShape2D" id="shape_body"]
+radius = 5.0
+
+[sub_resource type="ShaderMaterial" id="material_flash"]
+resource_local_to_scene = true
+shader = ExtResource("3_flash")
+shader_parameter/flash_amount = 0.0
+shader_parameter/flash_color = Color(1, 1, 1, 1)
+
+[sub_resource type="CircleShape2D" id="shape_hurtbox"]
+radius = 5.0
+
+[node name="Player" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+motion_mode = 1
+script = ExtResource("1_player")
+starting_weapon = ExtResource("2_weapon")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape_body")
+
+[node name="Visual" type="Node2D" parent="."]
+material = SubResource("material_flash")
+script = ExtResource("4_visual")
+
+[node name="Body" type="Polygon2D" parent="Visual"]
+use_parent_material = true
+color = Color(0.25, 0.85, 1, 1)
+polygon = PackedVector2Array(-5, -7, 5, -7, 5, 7, -5, 7)
+
+[node name="Visor" type="Polygon2D" parent="Visual"]
+use_parent_material = true
+color = Color(1, 1, 1, 1)
+polygon = PackedVector2Array(0, -5, 5, -5, 5, -2, 0, -2)
+
+[node name="WeaponPivot" type="Node2D" parent="."]
+
+[node name="PlayerInput" type="Node2D" parent="."]
+script = ExtResource("5_input")
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("6_health")
+
+[node name="Inventory" type="Node" parent="."]
+script = ExtResource("8_inventory")
+
+[node name="Hurtbox" type="Area2D" parent="." node_paths=PackedStringArray("health")]
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+script = ExtResource("7_hurtbox")
+health = NodePath("../HealthComponent")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+shape = SubResource("shape_hurtbox")

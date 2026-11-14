@@ -1,0 +1,80 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://enemies/chaser/chaser.gd" id="1_chaser"]
+[ext_resource type="Shader" path="res://core/fx/hit_flash.gdshader" id="2_flash"]
+[ext_resource type="Script" path="res://core/fx/flash_visual.gd" id="3_visual"]
+[ext_resource type="Script" path="res://core/components/health_component.gd" id="4_health"]
+[ext_resource type="Script" path="res://core/components/hurtbox.gd" id="5_hurtbox"]
+[ext_resource type="Script" path="res://core/components/hitbox.gd" id="6_hitbox"]
+[ext_resource type="Script" path="res://ui/mini_health_bar.gd" id="7_bar"]
+
+[sub_resource type="CircleShape2D" id="shape_body"]
+radius = 10.0
+
+[sub_resource type="ShaderMaterial" id="material_flash"]
+resource_local_to_scene = true
+shader = ExtResource("2_flash")
+shader_parameter/flash_amount = 0.0
+shader_parameter/flash_color = Color(1, 1, 1, 1)
+
+[sub_resource type="CircleShape2D" id="shape_hurtbox"]
+radius = 12.0
+
+[sub_resource type="CircleShape2D" id="shape_hitbox"]
+radius = 13.0
+
+[node name="PlatedBrute" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 5
+motion_mode = 1
+script = ExtResource("1_chaser")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape_body")
+
+[node name="Visual" type="Node2D" parent="."]
+material = SubResource("material_flash")
+script = ExtResource("3_visual")
+
+[node name="Body" type="Polygon2D" parent="Visual"]
+use_parent_material = true
+color = Color(0.6, 0.66, 0.85, 1)
+polygon = PackedVector2Array(-7, -11, 7, -11, 11, -7, 11, 7, 7, 11, -7, 11, -11, 7, -11, -7)
+
+[node name="Plate" type="Polygon2D" parent="Visual"]
+use_parent_material = true
+color = Color(0.22, 0.25, 0.38, 1)
+polygon = PackedVector2Array(-6, -6, 6, -6, 6, 6, -6, 6)
+
+[node name="Core" type="Polygon2D" parent="Visual"]
+use_parent_material = true
+color = Color(1, 0.25, 0.45, 1)
+polygon = PackedVector2Array(0, -3, 3, 0, 0, 3, -3, 0)
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("4_health")
+
+[node name="Hurtbox" type="Area2D" parent="." node_paths=PackedStringArray("health")]
+collision_layer = 16
+collision_mask = 0
+monitoring = false
+script = ExtResource("5_hurtbox")
+health = NodePath("../HealthComponent")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+shape = SubResource("shape_hurtbox")
+
+[node name="Hitbox" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 8
+monitorable = false
+script = ExtResource("6_hitbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hitbox"]
+shape = SubResource("shape_hitbox")
+
+[node name="HealthBar" type="Node2D" parent="." node_paths=PackedStringArray("health")]
+position = Vector2(0, -18)
+script = ExtResource("7_bar")
+health = NodePath("../HealthComponent")
+width = 22.0

@@ -1,0 +1,13 @@
+# Godot 4 generated cache (rebuilt automatically by the editor / --import)
+.godot/
+
+# Local copy of the engine binary (150 MB; see README for setup)
+tools/godot/
+
+# Exported builds
+build/
+export/
+
+# OS noise
+Thumbs.db
+.DS_Store

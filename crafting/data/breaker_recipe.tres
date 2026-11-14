@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="Recipe" format=3]
+
+[ext_resource type="Script" path="res://crafting/recipe.gd" id="1_recipe"]
+[ext_resource type="Script" path="res://items/item_amount.gd" id="2_amount"]
+[ext_resource type="Resource" path="res://weapons/data/breaker.tres" id="3_breaker"]
+[ext_resource type="Resource" path="res://items/data/scrap.tres" id="4_scrap"]
+[ext_resource type="Resource" path="res://items/data/volt_core.tres" id="5_core"]
+
+[sub_resource type="Resource" id="cost_scrap"]
+script = ExtResource("2_amount")
+item = ExtResource("4_scrap")
+amount = 12
+
+[sub_resource type="Resource" id="cost_core"]
+script = ExtResource("2_amount")
+item = ExtResource("5_core")
+amount = 3
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"breaker"
+result = ExtResource("3_breaker")
+costs = Array[ExtResource("2_amount")]([SubResource("cost_scrap"), SubResource("cost_core")])

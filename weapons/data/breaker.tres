@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MeleeSwingData" format=3]
+
+[ext_resource type="Script" path="res://weapons/behaviors/melee_swing/melee_swing_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://weapons/behaviors/melee_swing/melee_swing.tscn" id="2_behavior"]
+
+[resource]
+script = ExtResource("1_data")
+reach = 40.0
+arc_degrees = 160.0
+color = Color(1, 0.6, 0.2, 1)
+id = &"breaker"
+display_name = "Breaker"
+description = "A heavy hammer. Slow to swing and it roots you while it winds up, but it hits a wide arc hard enough to crack armour."
+behavior_scene = ExtResource("2_behavior")
+damage = 36.0
+knockback = 280.0
+hit_stop = 0.1
+screen_shake = 0.7
+windup = 0.22
+active_time = 0.1
+recovery = 0.38
+move_speed_multiplier = 0.3
+lunge_speed = 140.0

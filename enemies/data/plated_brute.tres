@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="ChaserData" format=3]
+
+[ext_resource type="Script" path="res://enemies/chaser/chaser_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://enemies/chaser/plated_brute.tscn" id="2_scene"]
+[ext_resource type="Script" path="res://loot/drop_entry.gd" id="3_drop"]
+[ext_resource type="Resource" path="res://items/data/scrap.tres" id="4_scrap"]
+[ext_resource type="Resource" path="res://items/data/volt_core.tres" id="5_core"]
+
+[sub_resource type="Resource" id="drop_scrap"]
+script = ExtResource("3_drop")
+item = ExtResource("4_scrap")
+chance = 1.0
+min_amount = 3
+max_amount = 4
+
+[sub_resource type="Resource" id="drop_core"]
+script = ExtResource("3_drop")
+item = ExtResource("5_core")
+chance = 1.0
+min_amount = 1
+max_amount = 1
+
+[resource]
+script = ExtResource("1_data")
+damage = 20.0
+attack_range = 52.0
+windup = 0.7
+committed_windup = true
+lunge_speed = 300.0
+lunge_duration = 0.3
+recovery = 1.0
+attack_knockback = 260.0
+attack_hit_stop = 0.09
+id = &"plated_brute"
+display_name = "Plated Brute"
+scene = ExtResource("2_scene")
+max_health = 90.0
+move_speed = 45.0
+stagger_time = 0.0
+knockback_resistance = 0.75
+armor = 9.0
+drops = Array[ExtResource("3_drop")]([SubResource("drop_scrap"), SubResource("drop_core")])
+color = Color(0.6, 0.66, 0.85, 1)
