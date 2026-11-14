@@ -193,6 +193,20 @@ func _test_drops() -> void:
 	var hound := load("res://enemies/data/scrap_hound.tres") as ChaserData
 	var listed := hound != null and hound.drops.size() == 2
 	_check(listed and hound.drops[0].item != null and hound.drops[1].item != null, "the hound's loot list loads")
+	if not listed:
+		return
+	var scrap_path := hound.drops[0].item.resource_path
+	var core_path := hound.drops[1].item.resource_path
+	var sensible := true
+	var cores_seen := 0
+	for i in 500:
+		var pieces := Enemy.roll_drops(hound.drops)
+		var scraps := pieces.count(scrap_path)
+		var cores := pieces.count(core_path)
+		cores_seen += cores
+		sensible = sensible and scraps >= 1 and scraps <= 2 and cores <= 1 and pieces.size() == scraps + cores
+	_check(sensible, "one roll of the hound's loot gives 1-2 Scrap and at most 1 Volt Core")
+	_check(cores_seen > 50 and cores_seen < 150, "Volt Cores drop about one kill in five (%d of 500)" % cores_seen)
 
 
 func _test_armor() -> void:

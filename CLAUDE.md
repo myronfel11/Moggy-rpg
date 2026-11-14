@@ -3,6 +3,13 @@
 Top-down pixel art action RPG in Godot 4.4.1 with typed GDScript. The user is a web developer
 who is new to game development: explain game-dev concepts and the reasons behind decisions.
 
+Two developers work on this from different homes via GitHub; see `docs/CONTRIBUTING.md`
+for the branch/pull-request workflow and Godot conflict rules. Work on a branch, never
+commit straight to `main`. Bump `application/config/version` in `project.godot` when a
+change affects networking, synced values or network-spawned scenes (co-op refuses
+mismatched versions). A new PC runs `tools\setup.cmd` to install the pinned Godot build.
+GitHub Actions (`.github/workflows/tests.yml`) runs unit and smoke tests on pull requests.
+
 ## Read first
 
 - `docs/ROADMAP.md`: current phase and what is next. Update it when a milestone item changes state.
@@ -75,6 +82,8 @@ What cannot be verified from here: how the game *feels*. Say so, and ask the use
   - A new synced value goes in that scene's `Sync` node (`SceneReplicationConfig`).
   - A new enemy brain must override `_puppet_think` to show telegraphs on clients.
   - Visual one-off events from the host use `@rpc("authority", "call_remote")`.
+  - Loot is rolled once by the host (`Enemy.roll_drops`) and sent with the death RPC;
+    every peer spawns its own copy of the same pieces. Never roll randomness on clients.
   - Player intent goes through `PlayerInput`; gameplay code never reads `Input` directly.
   - Never assume one player. Find players through the `players` group or `Arena.get_players()`.
   - No gameplay state in autoload singletons.

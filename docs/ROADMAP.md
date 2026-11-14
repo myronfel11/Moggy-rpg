@@ -60,6 +60,20 @@ everything after this point is built networked from the start. Scope: decision D
 - ✅ Automated two-process co-op test in `tools\test.cmd`
 - ⬜ **Your two-window playtest** (see README, "Co-op")
 
+## Phase 3b: Remote team and internet play 🟡
+
+Two developers in different homes (decision D-19).
+
+- 🟡 GitHub workflow, `tools\setup.cmd` for new PCs, `docs/CONTRIBUTING.md`
+- 🟡 Tests run automatically on pull requests (GitHub Actions)
+- ⬜ Repository on GitHub and second developer invited (needs your GitHub sign-in)
+- ⬜ First internet session over Tailscale (no code; checklist in CONTRIBUTING)
+- ✅ Version check on join, 10 s join timeout, teammate joined/left messages
+- ✅ Late joiners see enemies' real health
+- ✅ Both players get the same drops from a kill (host rolls once)
+- ⬜ Steam relay: host with Steam, find and join games through Steam (GodotSteam)
+- ⬜ Internet tuning, only for problems the playtests show
+
 ## Phase 4: Combat depth ⬜
 
 - ⬜ Three to four weapon behaviours (heavy, ranged, energy/magic)

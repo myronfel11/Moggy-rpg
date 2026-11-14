@@ -10,10 +10,14 @@ extends Node2D
 signal player_spawned(player: Player)
 ## Emitted once, when this machine's own player appears.
 signal local_player_ready(player: Player)
+## Emitted on every peer when any player disappears (left or disconnected).
+signal player_left(peer_id: int)
 
 const PLAYER_SCENE := preload("res://player/player.tscn")
 ## Gap between players who spawn at the same time, in pixels.
 const PLAYER_SPACING := 20.0
+## Seconds between telling a refused client why and disconnecting it.
+const REJECT_DELAY := 0.5
 
 ## Tests switch this off so they can spawn enemies themselves.
 @export var auto_start := true
@@ -41,7 +45,7 @@ func _ready() -> void:
 		if auto_start:
 			_director.start()
 	else:
-		_request_player.rpc_id(1)
+		_request_player.rpc_id(1, _get_session_version())
 
 
 ## The start point, used for first spawns and respawns.
@@ -65,10 +69,43 @@ func spawn_enemy(type: EnemyData, at: Vector2) -> Enemy:
 	return enemy
 
 
+## A joining client asks for its player. The host refuses a client running a different
+## build, because mismatched code or scenes break the session in confusing ways.
 @rpc("any_peer", "call_remote", "reliable")
-func _request_player() -> void:
-	if multiplayer.is_server():
-		_spawn_player(multiplayer.get_remote_sender_id())
+func _request_player(version: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer := multiplayer.get_remote_sender_id()
+	var own_version := _get_session_version()
+	if version != own_version:
+		var reason := "Version mismatch: host has %s, you have %s. Both pull the latest main." % [
+			own_version, version,
+		]
+		_rejected.rpc_id(peer, reason)
+		# Let the message arrive before hanging up.
+		await get_tree().create_timer(REJECT_DELAY).timeout
+		if multiplayer.multiplayer_peer is ENetMultiplayerPeer:
+			multiplayer.multiplayer_peer.disconnect_peer(peer)
+		return
+	_spawn_player(peer)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rejected(reason: String) -> void:
+	var session := _get_session()
+	if session != null:
+		session.set_end_reason(reason)
+
+
+func _get_session() -> NetworkSession:
+	return get_tree().get_first_node_in_group(&"network_session") as NetworkSession
+
+
+func _get_session_version() -> String:
+	var session := _get_session()
+	if session != null:
+		return session.get_game_version()
+	return str(ProjectSettings.get_setting("application/config/version", "0"))
 
 
 func _spawn_player(peer: int) -> void:
@@ -116,12 +153,26 @@ func _on_entity_spawned(node: Node) -> void:
 	if player == null:
 		return
 	player_spawned.emit(player)
+	var peer := player.peer_id
+	player.tree_exiting.connect(func() -> void: _on_player_exiting.call_deferred(peer))
+	if not player.is_local():
+		_hud.show_message("TEAMMATE JOINED")
 	if player.is_local() and local_player == null:
 		local_player = player
 		_camera.target = player
 		_camera.snap_to_target()
 		_hud.bind(player, _director, _station)
 		local_player_ready.emit(player)
+
+
+## Runs a moment after a player node is removed. If the whole arena is closing, it is no
+## longer in the tree by then and stays quiet.
+func _on_player_exiting(peer: int) -> void:
+	if not is_inside_tree():
+		return
+	player_left.emit(peer)
+	if local_player == null or not is_instance_valid(local_player) or local_player.peer_id != peer:
+		_hud.show_message("TEAMMATE LEFT")
 
 
 func _on_peer_disconnected(peer: int) -> void:

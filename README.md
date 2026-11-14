@@ -24,9 +24,13 @@ Everything runs from the `tools` folder (double-click, or run from a terminal):
 run `host.cmd`, then `join.cmd`; two windows open and each controls its own character
 (click a window to give it the keyboard). Over a LAN, the joiner types the host PC's IP
 address in the menu. The host's firewall must allow the game on UDP port 24565.
+Across the internet (different homes), a normal IP address does not work; use Tailscale
+for now, as described in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Steam play is planned.
 
 The engine itself lives in `tools/godot/` and is not committed to git. On a new machine,
-download Godot 4.4.1 (standard, not .NET) and unzip it there.
+run `tools\setup.cmd` once: it downloads Godot 4.4.1 there and checks it is the official build.
+
+Working together on GitHub and playing online from different homes: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## Controls
 

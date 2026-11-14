@@ -30,6 +30,8 @@ const BLOCKED_SPEED_RATIO := 0.35
 var data: EnemyData
 ## Where the host says this enemy is. Co-op clients glide toward it.
 var net_position := Vector2.ZERO
+## Item file paths of the loot this enemy dropped when it died (empty while alive).
+var last_loot := PackedStringArray()
 
 var _hit_stop := 0.0
 var _stagger := 0.0
@@ -47,7 +49,13 @@ var _detour_direction := Vector2.ZERO
 func _ready() -> void:
 	assert(data != null, "Assign Enemy.data before adding the enemy to the scene.")
 	add_to_group(&"enemies")
-	health.setup(data.max_health)
+	if is_multiplayer_authority():
+		health.setup(data.max_health)
+	else:
+		# Co-op client: keep the health the host synced (a late joiner may see a hurt enemy).
+		var synced := health.current
+		health.max_health = data.max_health
+		health.current = synced if synced > 0.0 and synced < data.max_health else data.max_health
 	health.died.connect(_on_died)
 	hurtbox.armor = data.armor
 	hurtbox.hit_received.connect(_on_hit_received)
@@ -152,16 +160,25 @@ func _physics_process(delta: float) -> void:
 	net_position = global_position
 
 
-## Rolls each line of the loot list and scatters the results where the enemy died.
-func _drop_loot() -> void:
-	for entry in data.drops:
+## Rolls every line of a loot list once. Returns one item file path per piece dropped.
+static func roll_drops(drops: Array[DropEntry]) -> PackedStringArray:
+	var pieces := PackedStringArray()
+	for entry in drops:
 		if entry == null:
 			continue
 		for i in entry.roll():
-			var pickup := PICKUP_SCENE.instantiate() as Pickup
-			pickup.item = entry.item
-			pickup.position = position
-			get_parent().add_child(pickup)
+			pieces.append(entry.item.resource_path)
+	return pieces
+
+
+## Scatters the given pieces where the enemy died. Each peer collects its own copy.
+func _spawn_loot(pieces: PackedStringArray) -> void:
+	last_loot = pieces
+	for path in pieces:
+		var pickup := PICKUP_SCENE.instantiate() as Pickup
+		pickup.item = load(path) as ItemData
+		pickup.position = position
+		get_parent().add_child(pickup)
 
 
 ## Override: decide what to do this tick by setting [member velocity].
@@ -213,27 +230,30 @@ func _net_flash(glancing: bool) -> void:
 
 
 func _on_died() -> void:
-	_die()
-	_net_die.rpc()
+	# The host rolls the loot once, so every player gets the same drops.
+	var loot := roll_drops(data.drops)
+	_die(loot)
+	_net_die.rpc(loot)
 	# Only the host removes the enemy; removing it also removes it on every client.
 	get_tree().create_timer(DEATH_TIME, false).timeout.connect(queue_free)
 
 
-## On co-op clients: the host's copy died. Play the death and drop this player's loot.
+## On co-op clients: the host's copy died. Play the death and drop this player's copy of
+## the loot the host rolled.
 @rpc("authority", "call_remote", "reliable")
-func _net_die() -> void:
+func _net_die(loot: PackedStringArray) -> void:
 	if not _dead:
-		_die()
+		_die(loot)
 
 
-## Everything a death looks like, on every peer. Each peer rolls its own loot.
-func _die() -> void:
+## Everything a death looks like, on every peer.
+func _die(loot: PackedStringArray) -> void:
 	_dead = true
 	_on_interrupted()
 	collision_layer = 0
 	collision_mask = 0
 	hurtbox.set_deferred(&"monitorable", false)
-	_drop_loot()
+	_spawn_loot(loot)
 	died.emit(self)
 	visual.flash(DEATH_TIME)
 	var tween := create_tween().set_parallel()

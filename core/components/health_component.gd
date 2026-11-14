@@ -22,7 +22,9 @@ var current := 0.0:
 
 
 func _ready() -> void:
-	current = max_health
+	# A co-op client may already have received a synced value; keep it.
+	if current <= 0.0:
+		current = max_health
 
 
 ## Sets a new maximum and refills to it.

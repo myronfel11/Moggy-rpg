@@ -124,6 +124,11 @@ func _get_inventory_row(item: ItemData) -> Label:
 	return label
 
 
+## Shows a short message in the middle of the screen (teammate joined, crafted, ...).
+func show_message(text: String) -> void:
+	_show_toast(text)
+
+
 func _show_toast(text: String) -> void:
 	if _toast_tween != null:
 		_toast_tween.kill()

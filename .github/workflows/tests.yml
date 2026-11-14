@@ -1,0 +1,33 @@
+# Runs the automated tests on every pull request and every push to main.
+# The two-process co-op test is not run here; run tools\test.cmd locally for that.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GODOT_VERSION: 4.4.1-stable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          unzip -q "Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          mv "Godot_v${GODOT_VERSION}_linux.x86_64" godot
+          chmod +x godot
+
+      - name: Import project
+        run: ./godot --headless --path . --import || true
+
+      - name: Unit tests
+        run: ./godot --headless --path . res://tests/unit_tests.tscn
+
+      - name: Smoke test
+        run: ./godot --headless --fixed-fps 60 --path . res://tests/smoke_test.tscn
