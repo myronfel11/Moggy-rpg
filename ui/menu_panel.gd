@@ -12,6 +12,7 @@ const BOX_SIZE := Vector2(300.0, 210.0)
 var player: Player
 
 var _box: VBoxContainer
+var _frame: PanelContainer
 
 
 ## Opens the panel for [param for_player] (this machine's player).
@@ -39,6 +40,18 @@ func open(for_player: Player) -> void:
 	var close_button := make_button("Close  [Esc]")
 	close_button.pressed.connect(close)
 	_box.add_child(close_button)
+	# Fit the box to its contents (at least BOX_SIZE tall) and keep it centred on screen.
+	_frame = frame
+	_fit_frame.call_deferred()
+
+
+func _fit_frame() -> void:
+	if not is_instance_valid(_frame):
+		return
+	var screen := Vector2(480.0, 270.0)
+	var height := clampf(_frame.get_combined_minimum_size().y, BOX_SIZE.y, screen.y - 6.0)
+	_frame.size = Vector2(BOX_SIZE.x, height)
+	_frame.position = (screen - _frame.size) * 0.5
 
 
 func close() -> void:

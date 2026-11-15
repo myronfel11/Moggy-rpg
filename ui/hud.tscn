@@ -112,3 +112,18 @@ offset_right = 240.0
 offset_bottom = 251.0
 mouse_filter = 2
 script = ExtResource("2_abilities")
+
+[node name="HoldBack" type="ColorRect" parent="."]
+visible = false
+offset_left = 200.0
+offset_top = 247.0
+offset_right = 280.0
+offset_bottom = 250.0
+mouse_filter = 2
+color = Color(0.03, 0.03, 0.07, 0.85)
+
+[node name="HoldFill" type="ColorRect" parent="HoldBack"]
+offset_right = 0.0
+offset_bottom = 3.0
+mouse_filter = 2
+color = Color(0.3, 1, 0.85, 1)

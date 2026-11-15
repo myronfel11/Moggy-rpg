@@ -8,8 +8,10 @@ extends Resource
 @export var id: StringName
 @export var display_name := ""
 @export_multiline var description := ""
-## The level scene the mission takes place in. Its root script must extend Arena.
+## The level scene the mission takes place in. Its root script must extend Level.
 @export_file("*.tscn") var level_scene := "res://levels/test_arena/test_arena.tscn"
+## Shown in the mission menu instead of "N waves" when set (for example "Boss").
+@export var length_text := ""
 
 @export_group("Waves")
 ## The regular enemy.

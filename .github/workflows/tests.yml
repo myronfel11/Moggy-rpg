@@ -37,3 +37,6 @@ jobs:
 
       - name: Venza test
         run: ./godot --headless --fixed-fps 60 --path . res://tests/venza_test.tscn
+
+      - name: Boss test
+        run: ./godot --headless --fixed-fps 60 --path . res://tests/boss_test.tscn

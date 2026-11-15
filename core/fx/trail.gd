@@ -34,6 +34,15 @@ func _ready() -> void:
 	z_index = -1
 
 
+## Changes the trail colour (it still fades out toward its tail).
+func set_color(color: Color) -> void:
+	default_color = color
+	var fade := Gradient.new()
+	fade.set_color(0, Color(color, 0.0))
+	fade.set_color(1, color)
+	gradient = fade
+
+
 ## Starts following [param node].
 func follow(node: Node2D) -> void:
 	_target = node

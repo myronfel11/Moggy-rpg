@@ -34,6 +34,8 @@ var _toast_tween: Tween
 @onready var _toast_label: Label = $ToastLabel
 @onready var _status_label: Label = $StatusLabel
 @onready var _ability_bar: AbilityBar = $AbilityBar
+@onready var _hold_back: ColorRect = $HoldBack
+@onready var _hold_fill: ColorRect = $HoldBack/HoldFill
 
 
 func _ready() -> void:
@@ -94,14 +96,25 @@ func _process(_delta: float) -> void:
 ## Shows the prompt of the station the player is standing at, if any.
 func _refresh_prompt() -> void:
 	var prompt := ""
+	var hold := 0.0
+	var holdable := false
 	for node in get_tree().get_nodes_in_group(&"stations"):
 		var station := node as Station
-		if station != null and station.is_in_range(_player):
-			prompt = station.get_prompt(_player)
-			break
+		if station == null or not station.is_in_range(_player):
+			continue
+		var text := station.get_prompt(_player)
+		if text == "":
+			continue
+		prompt = text
+		holdable = station.hold_time > 0.0 and station.can_interact(_player)
+		hold = station.get_hold_progress(_player)
+		break
 	_prompt_label.visible = prompt != ""
 	_prompt_label.text = prompt
-	_prompt_label.modulate = READY_COLOR if prompt.begins_with("[E]") else Color.WHITE
+	_prompt_label.modulate = READY_COLOR if prompt.begins_with("[E]") or holdable else Color.WHITE
+	# Hold-E progress bar under the prompt.
+	_hold_back.visible = holdable
+	_hold_fill.size.x = _hold_back.size.x * hold
 
 
 ## Updates the goal line: the next recipe and how far along the player is.

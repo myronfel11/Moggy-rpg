@@ -15,6 +15,8 @@ const ARENA := preload("res://levels/test_arena/test_arena.tscn")
 const HUB := preload("res://levels/hub/hub.tscn")
 
 var _port := NetworkSession.DEFAULT_PORT
+## From --mission=PATH: the first level loaded is this mission instead of the hub.
+var _start_mission := ""
 
 @onready var session: NetworkSession = $NetworkSession
 @onready var profile: PlayerProfile = $Profile
@@ -59,6 +61,8 @@ func _ready() -> void:
 			_port = int(argument.trim_prefix("--port="))
 		elif argument == "--solo" or argument == "--host":
 			mode = argument.trim_prefix("--")
+		elif argument.begins_with("--mission="):
+			_start_mission = argument.trim_prefix("--mission=")
 		elif argument.begins_with("--join="):
 			mode = "join"
 			join_address = argument.trim_prefix("--join=")
@@ -163,6 +167,13 @@ func _clear_steam_games() -> void:
 
 
 func _load_hub() -> void:
+	if _start_mission != "":
+		# --mission=PATH: go straight into a mission (playtest shortcuts and tests).
+		var mission := load(_start_mission) as MissionData
+		_start_mission = ""
+		if mission != null:
+			change_level(mission.level_scene, mission.resource_path)
+			return
 	change_level(HUB.resource_path)
 
 

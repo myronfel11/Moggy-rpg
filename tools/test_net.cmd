@@ -12,6 +12,8 @@ call :run_pair net_test 24600
 if errorlevel 1 exit /b 1
 call :run_pair net_hub_test 24601
 if errorlevel 1 exit /b 1
+call :run_pair net_boss_test 24602
+if errorlevel 1 exit /b 1
 exit /b 0
 
 rem Runs res://tests/<name>.tscn as host (background) and client, on the given port.

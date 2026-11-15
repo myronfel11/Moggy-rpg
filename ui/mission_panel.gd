@@ -26,7 +26,7 @@ func _build(box: VBoxContainer) -> void:
 		button.pressed.connect(select.bind(mission))
 		_list.add_child(button)
 	_details = make_label("", true)
-	_details.custom_minimum_size = Vector2(0.0, 56.0)
+	_details.custom_minimum_size = Vector2(0.0, 44.0)
 	box.add_child(_details)
 	_start = make_button("Start mission")
 	_start.pressed.connect(start)
@@ -48,6 +48,8 @@ func select(mission: MissionData) -> void:
 ## of that reward this player already has.
 static func describe(mission: MissionData, for_player: Player) -> String:
 	var length := "%d waves" % mission.waves_to_clear if mission.waves_to_clear > 0 else "Endless"
+	if mission.length_text != "":
+		length = mission.length_text
 	var reward := "Reward: Scrap and Volt Cores only"
 	if mission.reward_item != null:
 		var owned := for_player.inventory.get_count(mission.reward_item) if for_player != null else 0

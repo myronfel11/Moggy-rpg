@@ -1,0 +1,32 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://bosses/three_pillars/bomb.gd" id="1_bomb"]
+
+[sub_resource type="CircleShape2D" id="shape_range"]
+radius = 20.0
+
+[sub_resource type="SceneReplicationConfig" id="sync_config"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:carrier_peer")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:slot")
+properties/2/spawn = true
+properties/2/replication_mode = 0
+
+[node name="Bomb" type="Node2D"]
+z_index = 6
+script = ExtResource("1_bomb")
+
+[node name="Range" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Range"]
+shape = SubResource("shape_range")
+
+[node name="Sync" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("sync_config")
