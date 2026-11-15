@@ -17,6 +17,12 @@ signal dashed
 signal weapon_changed(data: WeaponData)
 ## Emitted when the player presses interact. Nearby things (crafting stations) listen.
 signal interact_requested(player: Player)
+## Emitted when a weapon is owned for the first time (crafted).
+signal weapon_unlocked(data: WeaponData)
+## Emitted when the carried weapons change.
+signal loadout_changed
+## Emitted when the character (look) changes.
+signal character_changed(data: CharacterData)
 
 enum State { MOVE, DASH, DEAD }
 
@@ -26,6 +32,8 @@ const GHOST_COLOR := Color(0.35, 0.9, 1.0, 0.55)
 const BLINK_PERIOD := 0.1
 const RESPAWN_PROTECTION := 1.0
 const KILL_SHAKE_BONUS := 0.2
+## How many weapons a player carries into a fight.
+const LOADOUT_SLOTS := 2
 ## How quickly another peer's player glides to its reported position. Higher is snappier.
 const PUPPET_SMOOTHING := 25.0
 ## Further off than this (respawn, lag spike), jump instead of gliding. In pixels.
@@ -76,10 +84,20 @@ var net_weapon_path := "":
 		net_weapon_path = value
 		if is_node_ready() and not is_local():
 			_equip_from_path(value)
+## The character's data file, so other peers show the same character.
+var net_character_path := "":
+	set(value):
+		net_character_path = value
+		if is_node_ready() and not is_local():
+			_character_from_path(value)
 ## The equipped weapon's behaviour node. Its stats are in weapon.data.
 var weapon: WeaponBehavior
 ## Every weapon this player owns, in the order they were obtained.
 var weapons: Array[WeaponData] = []
+## The weapons carried into fights (at most LOADOUT_SLOTS). Q swaps between them.
+var loadout: Array[WeaponData] = []
+## How the player looks. Chosen in the armory.
+var character: CharacterData
 
 var _dash_direction := Vector2.RIGHT
 var _dash_time_left := 0.0
@@ -104,12 +122,14 @@ func _ready() -> void:
 	hurtbox.hit_received.connect(_on_hit_received)
 	health.died.connect(_on_died)
 	var synced_weapon := net_weapon_path
+	var synced_character := net_character_path
 	if starting_weapon != null:
 		unlock_weapon(starting_weapon)
 	if not is_local():
 		# Another peer's player: they drive it, this machine only displays it.
 		input.use_device = false
 		_equip_from_path(synced_weapon)
+		_character_from_path(synced_character)
 		if state == State.DEAD:
 			_on_remote_state_changed(State.MOVE, State.DEAD)
 
@@ -119,13 +139,77 @@ func is_local() -> bool:
 	return is_multiplayer_authority()
 
 
-## Adds a weapon to the ones this player owns (if new) and equips it.
+## Adds a weapon to the ones this player owns. If a loadout slot is free it goes there
+## and is equipped; otherwise it waits in the armory.
 func unlock_weapon(data: WeaponData) -> void:
 	if data == null:
 		return
-	if not owns_weapon(data):
+	var is_new := not owns_weapon(data)
+	if is_new:
 		weapons.append(data)
-	equip(data)
+	if not _loadout_has(data) and loadout.size() < LOADOUT_SLOTS:
+		loadout.append(data)
+		loadout_changed.emit()
+	if _loadout_has(data):
+		equip(data)
+	if is_new:
+		weapon_unlocked.emit(data)
+
+
+## Replaces owned weapons and loadout at once (loading a saved profile).
+func set_weapons(owned: Array[WeaponData], chosen: Array[WeaponData]) -> void:
+	weapons.clear()
+	for data in owned:
+		if data != null and not owns_weapon(data):
+			weapons.append(data)
+	if weapons.is_empty() and starting_weapon != null:
+		weapons.append(starting_weapon)
+	set_loadout(chosen)
+
+
+## Chooses which owned weapons to carry, in slot order. Unowned weapons and duplicates are
+## dropped, extra entries beyond LOADOUT_SLOTS are ignored, and an empty loadout falls back
+## to the first owned weapon. Keeps the weapon in hand if it is still carried.
+func set_loadout(chosen: Array[WeaponData]) -> void:
+	var cleaned: Array[WeaponData] = []
+	for data in chosen:
+		if data != null and owns_weapon(data) and cleaned.size() < LOADOUT_SLOTS:
+			var already := false
+			for picked in cleaned:
+				already = already or picked.id == data.id
+			if not already:
+				cleaned.append(data)
+	if cleaned.is_empty() and not weapons.is_empty():
+		cleaned.append(weapons[0])
+	loadout = cleaned
+	loadout_changed.emit()
+	if weapon == null or not _loadout_has(weapon.data):
+		equip(loadout[0] if not loadout.is_empty() else null)
+
+
+## Sets how the player looks. Other peers see it through net_character_path.
+func set_character(data: CharacterData) -> void:
+	if data == null:
+		return
+	character = data
+	var body := visual.get_node_or_null(^"Body") as Polygon2D
+	if body != null:
+		body.color = data.color
+	if is_local():
+		net_character_path = data.resource_path
+	character_changed.emit(data)
+
+
+func _character_from_path(path: String) -> void:
+	if path != "" and (character == null or character.resource_path != path):
+		set_character(load(path) as CharacterData)
+
+
+func _loadout_has(data: WeaponData) -> bool:
+	for carried in loadout:
+		if carried.id == data.id:
+			return true
+	return false
 
 
 func owns_weapon(data: WeaponData) -> bool:
@@ -137,12 +221,15 @@ func owns_weapon(data: WeaponData) -> bool:
 	return false
 
 
-## Equips the next owned weapon, wrapping round to the first.
+## Equips the next weapon in the loadout, wrapping round to the first.
 func swap_weapon() -> void:
-	if weapons.size() < 2 or weapon == null:
+	if loadout.size() < 2 or weapon == null:
 		return
-	var current := weapons.find(weapon.data)
-	equip(weapons[(current + 1) % weapons.size()])
+	var current := 0
+	for i in loadout.size():
+		if loadout[i].id == weapon.data.id:
+			current = i
+	equip(loadout[(current + 1) % loadout.size()])
 
 
 ## Puts the weapon described by [param data] in the player's hands.

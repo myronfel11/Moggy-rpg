@@ -71,7 +71,7 @@ offset_top = 254.0
 offset_right = 340.0
 offset_bottom = 268.0
 theme_override_font_sizes/font_size = 8
-text = "WASD move   Mouse aim   Click attack   Space dash   E craft   Q swap"
+text = "WASD move   Mouse aim   Click attack   Space dash   E use   Q swap"
 
 [node name="WeaponLabel" type="Label" parent="."]
 offset_left = 340.0
@@ -84,10 +84,10 @@ horizontal_alignment = 2
 [node name="ToastLabel" type="Label" parent="."]
 visible = false
 modulate = Color(0.3, 1, 0.85, 1)
-offset_left = 90.0
-offset_top = 30.0
-offset_right = 390.0
-offset_bottom = 52.0
+offset_left = 40.0
+offset_top = 198.0
+offset_right = 440.0
+offset_bottom = 220.0
 theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 

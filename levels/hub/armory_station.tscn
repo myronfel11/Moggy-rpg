@@ -1,0 +1,40 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://levels/hub/armory_station.gd" id="1_armory"]
+[ext_resource type="Script" path="res://levels/common/wall_block.gd" id="2_wall"]
+[ext_resource type="Script" path="res://characters/character_data.gd" id="3_character"]
+[ext_resource type="Resource" path="res://characters/data/volt.tres" id="4_volt"]
+[ext_resource type="Resource" path="res://characters/data/ember.tres" id="5_ember"]
+[ext_resource type="Resource" path="res://characters/data/moss.tres" id="6_moss"]
+[ext_resource type="Resource" path="res://characters/data/nova.tres" id="7_nova"]
+
+[sub_resource type="CircleShape2D" id="shape_range"]
+radius = 34.0
+
+[node name="ArmoryStation" type="Node2D"]
+script = ExtResource("1_armory")
+characters = Array[ExtResource("3_character")]([ExtResource("4_volt"), ExtResource("5_ember"), ExtResource("6_moss"), ExtResource("7_nova")])
+
+[node name="Body" type="StaticBody2D" parent="."]
+script = ExtResource("2_wall")
+size = Vector2(22, 22)
+fill_color = Color(0.22, 0.14, 0.04, 1)
+edge_color = Color(1, 0.7, 0.25, 1)
+
+[node name="Range" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Range"]
+shape = SubResource("shape_range")
+
+[node name="NameLabel" type="Label" parent="."]
+modulate = Color(1, 0.7, 0.25, 0.85)
+offset_left = -40.0
+offset_top = -26.0
+offset_right = 40.0
+offset_bottom = -12.0
+theme_override_font_sizes/font_size = 8
+text = "ARMORY"
+horizontal_alignment = 1

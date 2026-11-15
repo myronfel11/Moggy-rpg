@@ -64,7 +64,7 @@ func _ready() -> void:
 	add_child(arena)
 	var player := (arena as Arena).local_player
 	var director := arena.get_node(^"WaveDirector") as WaveDirector
-	var station := arena.get_node(^"CraftingStation") as CraftingStation
+	var book := preload("res://crafting/data/recipe_book.tres") as RecipeBook
 	player.input.use_device = false
 	for key: String in overrides:
 		director.enemy_type.set(key, overrides[key])
@@ -102,7 +102,7 @@ func _ready() -> void:
 			stall_reported = true
 			_report_stall(player, float(i) / ticks_per_second)
 		if stats.affordable_at < 0.0:
-			var recipe := station.get_next_recipe(player)
+			var recipe := book.get_next(player)
 			if recipe != null and player.inventory.can_afford(recipe.costs):
 				stats.affordable_at = float(i) / ticks_per_second
 

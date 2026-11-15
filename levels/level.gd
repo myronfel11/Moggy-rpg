@@ -1,0 +1,205 @@
+class_name Level
+extends Node2D
+## Base class for every room players can be in: the hub and mission arenas.
+##
+## Handles what all rooms share: one player per connected peer, created through
+## EntitySpawner so every peer builds the same nodes; the version check when a client
+## joins; camera and HUD for this machine's player; loading this machine's saved profile
+## into its player; teammate joined/left messages; and asking Main to travel elsewhere.
+##
+## Subclasses override _setup_level() and _start_level() and add their own nodes.
+## Required child nodes: Entities, EntitySpawner, PlayerStart, GameCamera, HUD.
+
+## Emitted on every peer when any player appears.
+signal player_spawned(player: Player)
+## Emitted once, when this machine's own player appears.
+signal local_player_ready(player: Player)
+## Emitted on every peer when any player disappears (left or disconnected).
+signal player_left(peer_id: int)
+## Host only: asks Main to replace this level for everyone.
+signal change_level_requested(scene_path: String, mission_path: String)
+
+const PLAYER_SCENE := preload("res://player/player.tscn")
+const HUB_SCENE := "res://levels/hub/hub.tscn"
+## Gap between players who spawn at the same time, in pixels.
+const PLAYER_SPACING := 20.0
+## Seconds between telling a refused client why and disconnecting it.
+const REJECT_DELAY := 0.5
+
+## Recipes shown in the HUD goal line and offered by any Fabricator in this level.
+@export var recipe_book: RecipeBook = preload("res://crafting/data/recipe_book.tres")
+
+## This machine's player. Null until it has spawned.
+var local_player: Player
+## The MissionData file this level was started for, or "" (set by Main before _ready).
+var mission_path := ""
+
+@onready var _entities: Node2D = $Entities
+@onready var _entity_spawner: MultiplayerSpawner = $EntitySpawner
+@onready var _player_start: Marker2D = $PlayerStart
+@onready var _camera: GameCamera = $GameCamera
+@onready var _hud: Hud = $HUD
+
+
+func _ready() -> void:
+	add_to_group(&"level")
+	_entity_spawner.spawn_function = _spawn_entity
+	_entity_spawner.spawned.connect(_on_entity_spawned)
+	_setup_level()
+	if multiplayer.is_server():
+		multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+		_spawn_player(multiplayer.get_unique_id())
+		_start_level()
+	else:
+		_request_player.rpc_id(1, _get_session_version())
+
+
+## Override: prepare the level. Runs on every peer before any player spawns.
+func _setup_level() -> void:
+	pass
+
+
+## Override: start the level's activity. Host only, after the host's player spawned.
+func _start_level() -> void:
+	pass
+
+
+## Override: the wave director to show on the HUD, if this level has one.
+func _get_director() -> WaveDirector:
+	return null
+
+
+## The start point, used for first spawns and respawns.
+func get_player_start() -> Vector2:
+	return _player_start.global_position
+
+
+func get_players() -> Array[Player]:
+	var players: Array[Player] = []
+	for node in get_tree().get_nodes_in_group(&"players"):
+		var player := node as Player
+		if player != null and player.is_inside_tree():
+			players.append(player)
+	return players
+
+
+func get_hud() -> Hud:
+	return _hud
+
+
+## This machine's saved progress. Without Main (tests), a temporary unsaved one.
+func get_profile() -> PlayerProfile:
+	var profile := get_tree().get_first_node_in_group(&"player_profile") as PlayerProfile
+	if profile == null:
+		profile = PlayerProfile.new()
+		profile.persistent = false
+		add_child(profile)
+	return profile
+
+
+## A joining client asks for its player. The host refuses a client running a different
+## build, because mismatched code or scenes break the session in confusing ways.
+@rpc("any_peer", "call_remote", "reliable")
+func _request_player(version: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer := multiplayer.get_remote_sender_id()
+	var own_version := _get_session_version()
+	if version != own_version:
+		var reason := "Version mismatch: host has %s, you have %s. Both pull the latest main." % [
+			own_version, version,
+		]
+		_rejected.rpc_id(peer, reason)
+		# Let the message arrive before hanging up.
+		await get_tree().create_timer(REJECT_DELAY).timeout
+		if multiplayer.has_multiplayer_peer() and peer in multiplayer.get_peers():
+			multiplayer.multiplayer_peer.disconnect_peer(peer)
+		return
+	_spawn_player(peer)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rejected(reason: String) -> void:
+	var session := _get_session()
+	if session != null:
+		session.set_end_reason(reason)
+
+
+func _get_session() -> NetworkSession:
+	return get_tree().get_first_node_in_group(&"network_session") as NetworkSession
+
+
+func _get_session_version() -> String:
+	var session := _get_session()
+	if session != null:
+		return session.get_game_version()
+	return str(ProjectSettings.get_setting("application/config/version", "0"))
+
+
+func _spawn_player(peer: int) -> void:
+	if _entities.has_node(NodePath("Player%d" % peer)):
+		return
+	var offset := Vector2(PLAYER_SPACING * get_players().size(), 0.0)
+	var player := _spawn({"kind": "player", "peer": peer, "position": get_player_start() + offset}) as Player
+	_on_entity_spawned(player)
+
+
+## Spawns through the MultiplayerSpawner when online, and directly when offline.
+func _spawn(data: Dictionary) -> Node:
+	if multiplayer.has_multiplayer_peer() and not multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
+		return _entity_spawner.spawn(data)
+	var node := _spawn_entity(data)
+	_entities.add_child(node, true)
+	return node
+
+
+## Builds a player (or, in subclasses, other entities) from spawn data. Runs on every peer
+## with the same data.
+func _spawn_entity(data: Dictionary) -> Node:
+	if data.get("kind", "") == "player":
+		var peer: int = data.peer
+		var player := PLAYER_SCENE.instantiate() as Player
+		player.name = "Player%d" % peer
+		player.peer_id = peer
+		player.position = data.position
+		player.net_position = data.position
+		player.set_multiplayer_authority(peer)
+		return player
+	push_error("Unknown spawn data: %s" % data)
+	return Node.new()
+
+
+func _on_entity_spawned(node: Node) -> void:
+	var player := node as Player
+	if player == null:
+		return
+	player_spawned.emit(player)
+	var peer := player.peer_id
+	player.tree_exiting.connect(func() -> void: _on_player_exiting.call_deferred(peer))
+	if not player.is_local():
+		_hud.show_message("TEAMMATE JOINED")
+	if player.is_local() and local_player == null:
+		local_player = player
+		var profile := get_profile()
+		profile.apply_to(player)
+		profile.watch(player)
+		_camera.target = player
+		_camera.snap_to_target()
+		_hud.bind(player, recipe_book, _get_director())
+		local_player_ready.emit(player)
+
+
+## Runs a moment after a player node is removed. If the whole level is closing, it is no
+## longer in the tree by then and stays quiet.
+func _on_player_exiting(peer: int) -> void:
+	if not is_inside_tree():
+		return
+	player_left.emit(peer)
+	if local_player == null or not is_instance_valid(local_player) or local_player.peer_id != peer:
+		_hud.show_message("TEAMMATE LEFT")
+
+
+func _on_peer_disconnected(peer: int) -> void:
+	var player := _entities.get_node_or_null(NodePath("Player%d" % peer))
+	if player != null:
+		player.queue_free()

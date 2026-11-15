@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MissionData" format=3]
+
+[ext_resource type="Script" path="res://missions/mission_data.gd" id="1_mission"]
+[ext_resource type="Resource" path="res://enemies/data/scrap_hound.tres" id="2_hound"]
+[ext_resource type="Resource" path="res://enemies/data/plated_brute.tres" id="3_brute"]
+
+[resource]
+script = ExtResource("1_mission")
+id = &"brute_patrol"
+display_name = "Brute Patrol"
+description = "Five waves with armoured Plated Brutes from wave 2. They always carry a Volt Core. Bring something heavy."
+level_scene = "res://levels/test_arena/test_arena.tscn"
+enemy_type = ExtResource("2_hound")
+elite_type = ExtResource("3_brute")
+elite_from_wave = 2
+first_wave_size = 3
+wave_growth = 1
+max_wave_size = 8
+waves_to_clear = 5

@@ -60,6 +60,16 @@ The game starts at `main/main.tscn` (menu); tests instantiate the arena directly
 
 What cannot be verified from here: how the game *feels*. Say so, and ask the user to playtest.
 
+## Game flow
+
+`main/main.tscn` (menu) -> `levels/hub/hub.tscn` -> a mission (`missions/data/*.tres`, played
+in `levels/test_arena/test_arena.tscn`) -> back to the hub. Every room extends `Level`
+(`levels/level.gd`). Travel only through `Level.change_level_requested` / `Main.change_level`
+(host only). Lasting player state lives in `PlayerProfile` (`player/player_profile.gd`), never
+on the Player node, which is rebuilt on every level change. Tests use `--no-save` or set
+`profile.persistent = false` so they never touch the real save file. Stations extend `Station`;
+menus extend `MenuPanel` and block the player's input while open.
+
 ## Architecture rules
 
 - **Content is data.** Weapons are `WeaponData` resources (`weapons/data/*.tres`) pointing at a

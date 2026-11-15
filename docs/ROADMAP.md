@@ -76,6 +76,19 @@ Two developers in different homes (decision D-19).
   Host and search verified on one PC; a real two-account connection is not yet tested.
 - ⬜ Internet tuning, only for problems the playtests show
 
+## Phase 3c: The hub (Milestone 3) 🟡
+
+Goal: friends meet in a safe room, get their loadouts ready, and start missions together.
+
+- 🟡 Hub room with three areas: Navigation, Fabricator, Armory
+- 🟡 Navigation console: pick a mission; the host starts it for everyone
+- 🟡 Armory: choose a character (colour only for now) and two weapon slots
+- 🟡 Missions as data: Scrapyard Sweep (3 waves), Brute Patrol (5), Endless Siege
+- 🟡 Clear or fail a mission: everyone returns to the hub and keeps their loot
+- 🟡 Each PC saves its own progress (materials, weapons, loadout, character, cleared missions)
+- ✅ Hub test (offline) and co-op hub test (two processes) in `tools\test.cmd`
+- ⬜ **Your playtest, solo and with a friend**
+
 ## Phase 4: Combat depth ⬜
 
 - ⬜ Three to four weapon behaviours (heavy, ranged, energy/magic)
@@ -86,9 +99,9 @@ Two developers in different homes (decision D-19).
 
 ## Phase 5: Structure ⬜
 
-- ⬜ Hub and mission select
-- ⬜ Mission objective types
-- ⬜ Saving and loading
+- ✅ Hub and mission select (Phase 3c)
+- ⬜ Mission objective types (survive, elite hunt, ...)
+- ✅ Saving and loading (Phase 3c)
 - ⬜ Pinned crafting goals shown on the HUD
 - ⬜ Drop tables with bad-luck protection
 - ⬜ XP and revive tokens (decision D-08)

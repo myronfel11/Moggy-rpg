@@ -32,7 +32,10 @@ func _ready() -> void:
 	var arena := ARENA.instantiate()
 	add_child(arena)
 	var player := (arena as Arena).local_player
-	var station := arena.get_node(^"CraftingStation") as CraftingStation
+	# The Fabricator lives in the hub now; put one in the arena for these tests.
+	var station := preload("res://crafting/crafting_station.tscn").instantiate() as CraftingStation
+	station.position = Vector2(320.0, 96.0)
+	arena.add_child(station)
 	player.input.use_device = false
 
 	var frame := 0

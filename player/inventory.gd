@@ -33,6 +33,25 @@ func get_items() -> Array[ItemData]:
 	return _items
 
 
+## Item file path -> count, for saving. Items at zero are left out.
+func get_counts() -> Dictionary:
+	var counts := {}
+	for item in _items:
+		if get_count(item) > 0:
+			counts[item.resource_path] = get_count(item)
+	return counts
+
+
+## Replaces everything with the given item file path -> count (from a save).
+func set_counts(counts: Dictionary) -> void:
+	_counts.clear()
+	_items.clear()
+	for path: String in counts:
+		var item := load(path) as ItemData
+		if item != null:
+			add(item, int(counts[path]))
+
+
 ## True if the player holds enough of everything in [param costs].
 ## A cost list should name each item only once.
 func can_afford(costs: Array[ItemAmount]) -> bool:
