@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://abilities/ability_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://abilities/speed_boost/speed_boost.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_data")
+id = &"venza_speed_boost"
+display_name = "Boost"
+description = "Skate and run 60% faster for 4 seconds."
+behavior_scene = ExtResource("2_scene")
+cooldown = 12.0
+duration = 4.0
+color = Color(0.4, 0.9, 1, 1)
+breaks_on_attack = false

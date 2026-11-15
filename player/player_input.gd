@@ -14,6 +14,7 @@ extends Node2D
 
 ## How long a press is remembered, in seconds.
 const BUFFER_TIME := 0.12
+const ABILITY_ACTIONS: Array[StringName] = [&"ability_1", &"ability_2", &"ability_3", &"ability_4"]
 ## Mouse closer to the player than this (in pixels) does not change the aim.
 const AIM_DEADZONE := 2.0
 
@@ -30,6 +31,10 @@ var aim_direction := Vector2.RIGHT
 var attack_held := false
 ## True while the skate button is held down (characters with a skating passive).
 var skate_held := false
+## True while the grapple button is held down.
+var grapple_held := false
+
+var _ability_buffers: PackedFloat32Array = [0.0, 0.0, 0.0, 0.0]
 
 var _dash_buffer := 0.0
 var _attack_buffer := 0.0
@@ -44,17 +49,25 @@ func update(delta: float) -> void:
 		move = Vector2.ZERO
 		attack_held = false
 		skate_held = false
+		grapple_held = false
 		_dash_buffer = 0.0
 		_attack_buffer = 0.0
 		_interact_buffer = 0.0
 		_swap_buffer = 0.0
+		_ability_buffers.fill(0.0)
 		return
 	_dash_buffer = maxf(0.0, _dash_buffer - delta)
 	_attack_buffer = maxf(0.0, _attack_buffer - delta)
 	_interact_buffer = maxf(0.0, _interact_buffer - delta)
 	_swap_buffer = maxf(0.0, _swap_buffer - delta)
+	for i in _ability_buffers.size():
+		_ability_buffers[i] = maxf(0.0, _ability_buffers[i] - delta)
 	if not use_device:
 		return
+	grapple_held = Input.is_action_pressed(&"grapple")
+	for i in ABILITY_ACTIONS.size():
+		if Input.is_action_just_pressed(ABILITY_ACTIONS[i]):
+			press_ability(i)
 	if Input.is_action_just_pressed(&"interact"):
 		press_interact()
 	if Input.is_action_just_pressed(&"swap_weapon"):
@@ -73,6 +86,24 @@ func update(delta: float) -> void:
 
 func press_dash() -> void:
 	_dash_buffer = BUFFER_TIME
+
+
+## True if a dash press is waiting (without using it up).
+func has_dash_buffered() -> bool:
+	return _dash_buffer > 0.0
+
+
+## Presses ability [param slot] (0 to 2, or 3 for Zenith).
+func press_ability(slot: int) -> void:
+	_ability_buffers[slot] = BUFFER_TIME
+
+
+## Returns true once per buffered press of ability [param slot], then forgets it.
+func take_ability(slot: int) -> bool:
+	if _ability_buffers[slot] <= 0.0:
+		return false
+	_ability_buffers[slot] = 0.0
+	return true
 
 
 func press_attack() -> void:

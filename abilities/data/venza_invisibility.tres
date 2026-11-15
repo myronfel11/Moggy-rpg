@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://abilities/ability_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://abilities/invisibility/invisibility.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_data")
+id = &"venza_invisibility"
+display_name = "Fade"
+description = "Nearly invisible for 5 seconds: enemies lose track of you. Attacking ends it."
+behavior_scene = ExtResource("2_scene")
+cooldown = 15.0
+duration = 5.0
+color = Color(0.75, 0.6, 1, 1)
+breaks_on_attack = true

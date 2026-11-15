@@ -24,3 +24,7 @@ extends Resource
 ## Movement passive added to the player while playing this character (for example
 ## skating). Its root script must extend CharacterPassive. Empty for none.
 @export var passive_scene: PackedScene
+## Abilities on keys 1, 2 and 3.
+@export var abilities: Array[AbilityData] = []
+## The Zenith ultimate on key 4. Empty for none (the Zenith bar is then hidden).
+@export var zenith: ZenithData

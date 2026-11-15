@@ -58,6 +58,9 @@ func _run() -> void:
 	await _test_skating()
 	await _test_wall_riding()
 	await _test_trails()
+	await _test_abilities()
+	await _test_zenith()
+	await _test_grapple()
 
 
 func _on_node_added(node: Node) -> void:
@@ -106,7 +109,7 @@ func _test_pistols() -> void:
 	_player.remove_from_group(&"players")
 	_place(Vector2(320.0, 192.0))
 	_bullets.clear()
-	await _fire_for(60, Vector2.UP)
+	await _fire_for(60, Vector2.LEFT)
 	var expected := 1.0 / PISTOLS.fire_interval
 	_check(absf(_bullets.size() - expected) <= 2.0, "about %d shots per second while held (got %d)" % [roundi(expected), _bullets.size()])
 	var longest := 0.0
@@ -243,3 +246,224 @@ func _test_trails() -> void:
 	for trail: Trail in trails:
 		left_over += trail.get_point_count()
 	_check(left_over == 0, "trails fade away after she stops skating")
+
+
+func _spawn_ready(at: Vector2) -> Enemy:
+	var enemy := _arena.spawn_enemy(HOUND, at)
+	await _frames(int(Enemy.SPAWN_TIME * 60.0) + 2)
+	return enemy
+
+
+func _clear_enemies() -> void:
+	for node in get_tree().get_nodes_in_group(&"enemies"):
+		var enemy := node as Enemy
+		if not enemy.is_dead():
+			enemy.hurtbox.receive_hit(HitInfo.new(9999.0))
+	await _frames(20)
+
+
+func _test_abilities() -> void:
+	print("Abilities")
+	var abilities := _player.abilities
+	_check(abilities.abilities.size() == 3 and abilities.zenith != null, "Venza has three abilities and a Zenith")
+	_place(Vector2(200.0, 192.0))
+
+	# 1: Speed Boost
+	_check(abilities.use(0), "Boost starts")
+	_check(is_equal_approx(_player.get_speed_multiplier(), 1.6) and _player.has_flag(Player.FLAG_BOOSTED), "Boost raises speed by 60%")
+	_check(not abilities.use(0) and is_equal_approx(_player.get_speed_multiplier(), 1.6), "Boost cannot be stacked or reused while active")
+	_player.input.move = Vector2.RIGHT
+	await _frames(30)
+	_check(_player.velocity.length() > _player.max_speed * 1.55, "boosted running is faster (%.0f)" % _player.velocity.length())
+	_player.input.move = Vector2.ZERO
+	await _frames(int(abilities.get_ability(0).data.duration * 60.0))
+	_check(is_equal_approx(_player.get_speed_multiplier(), 1.0) and not _player.has_flag(Player.FLAG_BOOSTED), "Boost ends and speed returns to normal")
+	_check(not abilities.use(0), "Boost is on cooldown afterwards")
+
+	# 2: Fade (invisibility)
+	_place(Vector2(200.0, 192.0))
+	var hound := await _spawn_ready(Vector2(240.0, 192.0))
+	_check(hound.find_target() == _player, "an enemy targets the visible player")
+	_check(abilities.use(1), "Fade starts")
+	_check(_player.has_flag(Player.FLAG_INVISIBLE) and hound.find_target() == null, "an invisible player is not chosen as a target")
+	await _frames(30)
+	_check(_player.modulate.a < 0.5, "she is drawn faded")
+	_player.input.press_attack()
+	await _frames(3)
+	_check(not _player.has_flag(Player.FLAG_INVISIBLE) and hound.find_target() == _player, "attacking ends Fade and enemies see her again")
+	abilities.get_ability(1)._cooldown_left = 0.0
+	abilities.use(1)
+	# Hits she takes freeze her briefly (hit-stop), which also pauses ability timers.
+	await _until(func() -> bool: return not abilities.get_ability(1).is_active(), int(abilities.get_ability(1).data.duration * 60.0) + 120)
+	await _frames(2)
+	_check(not _player.has_flag(Player.FLAG_INVISIBLE) and _player.modulate.a > 0.99, "Fade wears off on its own")
+	await _clear_enemies()
+
+	# 3: Rush (dash attack) through three enemies
+	_player.remove_from_group(&"players")
+	_place(Vector2(200.0, 192.0))
+	var line: Array[Enemy] = []
+	for x: float in [230.0, 255.0, 280.0]:
+		line.append(_arena.spawn_enemy(HOUND, Vector2(x, 192.0)))
+	await _frames(int(Enemy.SPAWN_TIME * 60.0) + 2)
+	_player.input.move = Vector2.RIGHT
+	var start_x := _player.global_position.x
+	_check(abilities.use(2), "Rush starts")
+	_check(_player.is_in_custom_motion() and _player.hurtbox.invulnerable, "she is untouchable during Rush")
+	await _frames(25)
+	var each_once := true
+	for enemy in line:
+		each_once = each_once and is_equal_approx(enemy.health.current, HOUND.max_health - 20.0)
+	_check(each_once, "Rush hits each enemy in its path exactly once")
+	_check(_player.global_position.x - start_x > 85.0, "Rush carries her about 95 px (%.0f)" % (_player.global_position.x - start_x))
+	_player.input.move = Vector2.ZERO
+	await _clear_enemies()
+
+	_place(Vector2(620.0, 192.0))
+	abilities.get_ability(2)._cooldown_left = 0.0
+	_player.input.move = Vector2.RIGHT
+	abilities.use(2)
+	await _frames(25)
+	_check(_player.global_position.x < 640.0, "Rush cannot pass through a wall")
+	_player.input.move = Vector2.ZERO
+	_player.add_to_group(&"players")
+	await _frames(10)
+
+
+func _test_zenith() -> void:
+	print("Zenith")
+	var abilities := _player.abilities
+	_player.remove_from_group(&"players")
+	_place(Vector2(320.0, 192.0))
+	abilities.set_zenith_charge(0.0)
+	_check(not abilities.use(3), "Zenith cannot start without charge")
+
+	var hound := await _spawn_ready(Vector2(360.0, 192.0))
+	_player.input.aim_direction = Vector2.RIGHT
+	_player.input.attack_held = true
+	await _until(func() -> bool: return hound.is_dead(), 240)
+	_player.input.attack_held = false
+	_check(is_equal_approx(abilities.zenith_charge, HOUND.zenith_value), "a pistol kill gives full charge (%.1f)" % abilities.zenith_charge)
+	await _frames(20)
+
+	_player.equip(_player.weapons[0])
+	hound = await _spawn_ready(Vector2(345.0, 192.0))
+	_player.input.attack_held = true
+	await _until(func() -> bool: return hound.is_dead(), 240)
+	_player.input.attack_held = false
+	_check(is_equal_approx(abilities.zenith_charge, HOUND.zenith_value * 1.5), "a kill with another weapon gives half (%.1f)" % abilities.zenith_charge)
+	await _frames(20)
+	hound = await _spawn_ready(Vector2(345.0, 150.0))
+	hound.hurtbox.receive_hit(HitInfo.new(9999.0))
+	await _frames(5)
+	_check(is_equal_approx(abilities.zenith_charge, HOUND.zenith_value * 2.0), "a kill by someone else gives half (%.1f)" % abilities.zenith_charge)
+	_player.equip(PISTOLS)
+
+	abilities.set_zenith_charge(100.0)
+	await _frames(2)
+	_check(_player.has_flag(Player.FLAG_ZENITH_READY), "a full bar makes the crown glow (Zenith ready)")
+	var only_blade: Array[WeaponData] = [_player.weapons[0]]
+	_player.set_loadout(only_blade)
+	await _frames(2)
+	_check(abilities.get_zenith_block_reason().begins_with("Equip Twin Sparrows") and not abilities.use(3), "Zenith needs the pistols in a slot")
+	var both: Array[WeaponData] = [PISTOLS, _player.weapons[0]]
+	_player.set_loadout(both)
+	await _frames(2)
+	_check(abilities.use(3), "Zenith starts with a full bar and the pistols carried")
+	_check(is_equal_approx(abilities.zenith_charge, 0.0) and _player.has_flag(Player.FLAG_ZENITH_ACTIVE), "starting Zenith spends the charge")
+	_check(_player.is_in_custom_motion() and _player.hurtbox.invulnerable, "she is frozen and untouchable while transforming")
+	await _frames(30)
+	_check(_player.weapon.data.id == &"venza_arm_blades", "the pistols become arm blades")
+	_player.input.press_swap()
+	await _frames(3)
+	_check(_player.weapon.data.id == &"venza_arm_blades", "weapons cannot be swapped during Zenith")
+
+	# Auto-lock: a hound behind a pillar is ignored; one in the open is lunged at.
+	_place(Vector2(140.0, 112.0))
+	await _spawn_ready(Vector2(215.0, 112.0))
+	var blades := _player.weapon as ZenithBlades
+	_check(blades.pick_target(Vector2.RIGHT) == null, "enemies behind walls are not locked onto")
+	await _clear_enemies()
+	_place(Vector2(320.0, 192.0))
+	var target := await _spawn_ready(Vector2(390.0, 192.0))
+	var second := await _spawn_ready(Vector2(390.0, 240.0))
+	_check(blades.pick_target(Vector2.RIGHT) == target, "the enemy where she aims is chosen first")
+	_player.input.aim_direction = Vector2.RIGHT
+	_player.input.press_attack()
+	await _frames(2)
+	_check(_player.is_in_custom_motion(), "attacking lunges at the target")
+	await _until(func() -> bool: return not _player.is_in_custom_motion(), 30)
+	await _frames(8)
+	_check(target.is_dead(), "the lunge ends in a slash that kills it")
+	_check(is_equal_approx(abilities.zenith_charge, 0.0), "kills during Zenith give no charge")
+	await _frames(15)
+	_player.input.press_attack()
+	await _frames(2)
+	second.hurtbox.receive_hit(HitInfo.new(9999.0))
+	var settled := await _until(func() -> bool: return not _player.is_in_custom_motion(), 30)
+	_check(settled, "a target dying mid-lunge does not leave her stuck")
+	await _clear_enemies()
+
+	var zenith := abilities.zenith
+	await _until(func() -> bool: return not zenith.is_active(), 60 * 11)
+	_check(_player.weapon.data == PISTOLS, "the pistols return when Zenith ends")
+	_check(not _player.has_flag(Player.FLAG_ZENITH_ACTIVE) and not _player.has_flag(Player.FLAG_ZENITH_READY), "the crown returns to normal")
+	_check(not abilities.use(3), "the bar must be charged again")
+
+	abilities.set_zenith_charge(100.0)
+	abilities.use(3)
+	await _frames(30)
+	_player.hurtbox.invulnerable = false
+	_player.hurtbox.receive_hit(HitInfo.new(10000000.0))
+	await _frames(2)
+	_check(not zenith.is_active() and _player.weapon.data == PISTOLS, "dying ends Zenith and gives the pistols back")
+	_player.respawn(Vector2(320.0, 192.0))
+	_player.health.setup(1000000.0)
+	_player.add_to_group(&"players")
+	await _frames(70)
+
+
+func _test_grapple() -> void:
+	print("Grapple")
+	_player.set_character(load("res://characters/data/volt.tres") as CharacterData)
+	_check(_player.passive == null and _player.abilities.abilities.is_empty(), "back to a character without Venza's kit")
+	var anchor := Vector2(320.0, 112.0)
+	_place(Vector2(250.0, 112.0))
+	_player.input.aim_direction = Vector2.RIGHT
+	_player.input.grapple_held = true
+	await _frames(2)
+	var grapple := _player.grapple
+	_check(grapple.attached and _player.has_flag(Player.FLAG_GRAPPLING), "any character can grapple onto an anchor post")
+	_check(absf(grapple.anchor.x - (anchor.x - 4.0)) < 1.5, "the hook catches on the post's surface")
+	var length := grapple.rope_length
+	var longest := 0.0
+	var fastest := 0.0
+	var clear := true
+	_player.input.move = Vector2.UP
+	for i in 150:
+		await get_tree().physics_frame
+		var offset := _player.global_position - grapple.anchor
+		longest = maxf(longest, offset.length())
+		fastest = maxf(fastest, _player.velocity.length())
+		_player.input.move = offset.normalized().orthogonal()
+		clear = clear and (absf(_player.global_position.x - anchor.x) > 8.0 or absf(_player.global_position.y - anchor.y) > 8.0)
+	_check(longest <= length + 3.0, "the rope never stretches (%.0f of %.0f)" % [longest, length])
+	_check(fastest > _player.max_speed * 1.5 and fastest <= grapple.max_swing_speed + 1.0, "swinging builds speed up to the cap (%.0f)" % fastest)
+	_check(clear, "she never passes through the post")
+	var before := _player.velocity.length()
+	_player.input.grapple_held = false
+	_player.input.move = Vector2.ZERO
+	await _frames(1)
+	_check(not grapple.attached and not _player.has_flag(Player.FLAG_GRAPPLING) and _player.state == Player.State.MOVE, "letting go releases the rope")
+	_check(_player.velocity.length() >= before * 0.95, "releasing keeps the momentum (%.0f from %.0f)" % [_player.velocity.length(), before])
+	await _frames(10)
+	_check(_player.velocity.length() > _player.max_speed, "the launch carries for a moment (%.0f)" % _player.velocity.length())
+	await _frames(60)
+
+	_place(Vector2(320.0, 192.0))
+	_player.input.aim_direction = Vector2(1.0, 0.35).normalized()
+	_player.input.grapple_held = true
+	await _frames(2)
+	_check(not grapple.attached, "the hook misses when nothing is in range")
+	_player.input.grapple_held = false
+	await _frames(2)

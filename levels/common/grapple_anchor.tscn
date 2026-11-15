@@ -1,0 +1,9 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://levels/common/wall_block.gd" id="1_wall"]
+
+[node name="GrappleAnchor" type="StaticBody2D"]
+script = ExtResource("1_wall")
+size = Vector2(8, 8)
+fill_color = Color(0.05, 0.25, 0.3, 1)
+edge_color = Color(0.45, 1, 0.95, 1)

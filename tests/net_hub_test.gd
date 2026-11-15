@@ -13,7 +13,8 @@ const MAIN := preload("res://main/main.tscn")
 const SUIT := preload("res://missions/data/suit.tres")
 const SUIT_ITEM := preload("res://items/data/venza_suit.tres")
 const BREAKER := preload("res://weapons/data/breaker.tres")
-const NOVA := preload("res://characters/data/nova.tres")
+const VENZA := preload("res://characters/data/venza.tres")
+const HUB_ANCHOR := Vector2(240.0, 226.0)
 const TIMEOUT := 60.0
 const JOIN_DELAY := 2.0
 
@@ -54,9 +55,14 @@ func _run_host() -> void:
 		_fail("the client never finished its hub checks")
 		return
 	var remote := _remote_player()
-	await _wait_for(func() -> bool: return remote.character == NOVA, 3.0)
-	_check(remote.character == NOVA, "the host sees the client's chosen character in the hub")
+	await _wait_for(func() -> bool: return remote.character == VENZA, 3.0)
+	_check(remote.character == VENZA, "the host sees the client's chosen character in the hub")
 	_check(not (_main.get_level() as Hub).is_starting(), "the client could not start a mission")
+	await _wait_for(func() -> bool: return remote.has_flag(Player.FLAG_INVISIBLE) and remote.has_flag(Player.FLAG_GRAPPLING), 3.0)
+	_check(remote.has_flag(Player.FLAG_INVISIBLE) and not remote.is_targetable(), "the host sees the client's Fade, so enemies would ignore her")
+	_check(remote.has_flag(Player.FLAG_GRAPPLING) and remote.net_grapple_anchor.distance_to(HUB_ANCHOR) < 8.0, "the host sees the client's grapple and where it is attached")
+	await _wait_for(func() -> bool: return not remote.has_flag(Player.FLAG_GRAPPLING), 4.0)
+	_check(not remote.has_flag(Player.FLAG_GRAPPLING), "the host sees the client let go")
 
 	(_main.get_level() as Hub).start_mission(SUIT)
 	var arrived := await _wait_for(func() -> bool: return _main.get_arena() != null and _player_count() == 2, 15.0)
@@ -65,7 +71,7 @@ func _run_host() -> void:
 		return
 	remote = _remote_player()
 	await _wait_for(func() -> bool: return remote.weapon != null and remote.weapon.data == BREAKER, 3.0)
-	_check(remote.character == NOVA, "the client's character is the same in the mission")
+	_check(remote.character == VENZA, "the client's character is the same in the mission")
 	_check(remote.weapon != null and remote.weapon.data == BREAKER, "the host sees the client's own weapon in the mission")
 
 	# Clear the mission with its reward made certain: the host rolls once and both
@@ -99,19 +105,28 @@ func _run_client() -> void:
 	panel.close()
 	hub.start_mission(SUIT)
 	_check(not hub.is_starting(), "the client cannot start a mission")
-
+	# Become Venza, carrying only the Breaker so the host can check the right weapon.
+	player.unlock_character(VENZA)
 	player.unlock_weapon(BREAKER)
-	player.set_loadout([BREAKER])
-	player.set_character(NOVA)
+	var breaker_only: Array[WeaponData] = [BREAKER]
+	player.set_loadout(breaker_only)
+	player.set_character(VENZA)
+	# Use Fade and grapple the hub's anchor post so the host can see both.
+	player.abilities.use(1)
+	player.input.aim_direction = (HUB_ANCHOR - player.global_position).normalized()
+	player.input.grapple_held = true
 	await get_tree().create_timer(0.5).timeout
+	_check(player.grapple.attached, "the client grapples the hub's anchor post")
 	_ready_for_mission.rpc_id(1)
+	await get_tree().create_timer(1.5).timeout
+	player.input.grapple_held = false
 
 	var arrived := await _wait_for(func() -> bool: return _main.get_arena() != null and _local() != null, 15.0)
 	_check(arrived, "the client is taken to the mission")
 	if not arrived:
 		return
 	player = _local()
-	_check(player.character == NOVA and player.loadout == [BREAKER], "the client's own character and loadout come along")
+	_check(player.character == VENZA and player.loadout == [BREAKER], "the client's own character and loadout come along")
 	var back := await _wait_for(func() -> bool: return _main.get_level() is Hub and _local() != null, 25.0)
 	_check(back, "the client is back in the hub after the mission")
 	if back:

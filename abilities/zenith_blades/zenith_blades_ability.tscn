@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://abilities/zenith_blades/zenith_blades_ability.gd" id="1_ability"]
+
+[node name="ZenithBlades" type="Node2D"]
+script = ExtResource("1_ability")

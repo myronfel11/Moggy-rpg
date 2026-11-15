@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ZenithData" format=3]
+
+[ext_resource type="Script" path="res://abilities/zenith_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://abilities/zenith_blades/zenith_blades_ability.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://weapons/data/twin_sparrows.tres" id="3_pistols"]
+
+[resource]
+script = ExtResource("1_data")
+charge_weapon = ExtResource("3_pistols")
+required_weapon = ExtResource("3_pistols")
+transform_time = 0.4
+id = &"venza_zenith"
+display_name = "Zenith: Arm Blades"
+description = "Her pistols become arm blades for 10 seconds. Attack to lunge at the nearest enemy and slash; keep attacking to chain."
+behavior_scene = ExtResource("2_scene")
+cooldown = 0.0
+duration = 10.0
+color = Color(1, 0.8, 0.3, 1)
+breaks_on_attack = false

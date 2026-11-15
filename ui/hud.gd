@@ -33,6 +33,7 @@ var _toast_tween: Tween
 @onready var _weapon_label: Label = $WeaponLabel
 @onready var _toast_label: Label = $ToastLabel
 @onready var _status_label: Label = $StatusLabel
+@onready var _ability_bar: AbilityBar = $AbilityBar
 
 
 func _ready() -> void:
@@ -68,6 +69,8 @@ func bind(player: Player, book: RecipeBook, director: WaveDirector = null) -> vo
 	_on_health_changed(player.health.current, player.health.max_health)
 	_refresh_weapon()
 	_refresh_goal()
+	_ability_bar.bind(player.abilities)
+	player.character_changed.connect(func(_data: CharacterData) -> void: _ability_bar.rebuild.call_deferred())
 
 
 ## Shows a short message in the middle of the screen (teammate joined, crafted, ...).

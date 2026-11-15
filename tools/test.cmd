@@ -6,7 +6,14 @@ set GODOT="%~dp0godot\Godot_v4.4.1-stable_win64_console.exe"
 set PROJECT="%~dp0.."
 
 echo === Refreshing Godot's script and asset cache ===
-%GODOT% --headless --path %PROJECT% --import >nul 2>&1
+%GODOT% --headless --path %PROJECT% --import > "%TEMP%\arpg_import.log" 2>&1
+rem The import reports parse errors in every script, including ones the checks below
+rem would miss (a test can pass --check-only while a script it uses is broken).
+findstr /c:"Parse Error" "%TEMP%\arpg_import.log"
+if not errorlevel 1 (
+  echo A script has a syntax error. See the lines above.
+  exit /b 1
+)
 
 echo === Checking test scripts for syntax errors ===
 rem A test whose script fails to load never quits, so catch that before running anything.

@@ -101,6 +101,10 @@ menus extend `MenuPanel` and block the player's input while open.
     `NetworkSession` with `Engine.get_singleton("Steam")` and `call()`, and only after a
     Steam button is pressed. Never start Steam in tests or at game start.
     `tests/steam_check.tscn` is a manual one-PC check that needs Steam running.
+  - Character kits are data (`CharacterData`: passive, abilities, zenith). New abilities
+    extend `AbilityBehavior`; anything that moves the player uses
+    `Player.begin_custom_motion()`; visible state for teammates goes in `Player.net_flags`
+    (FLAG_*), one-off effects through `AbilityBehavior.show_remote()`.
   - Loot is rolled once by the host (`Enemy.roll_drops`) and sent with the death RPC;
     every peer spawns its own copy of the same pieces. Never roll randomness on clients.
   - Player intent goes through `PlayerInput`; gameplay code never reads `Input` directly.
