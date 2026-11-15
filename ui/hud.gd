@@ -67,8 +67,14 @@ func bind(player: Player, book: RecipeBook, director: WaveDirector = null) -> vo
 
 
 ## Shows a short message in the middle of the screen (teammate joined, crafted, ...).
-func show_message(text: String) -> void:
-	_show_toast(text)
+## Text may span two lines. [param seconds] is how long it stays before fading.
+func show_message(text: String, seconds := TOAST_TIME) -> void:
+	_show_toast(text, seconds)
+
+
+## The message currently on screen ("" when none). Used by tests.
+func get_message() -> String:
+	return _toast_label.text if _toast_label.visible and _toast_label.modulate.a > 0.0 else ""
 
 
 func _process(_delta: float) -> void:
@@ -145,14 +151,14 @@ func _get_inventory_row(item: ItemData) -> Label:
 	return label
 
 
-func _show_toast(text: String) -> void:
+func _show_toast(text: String, seconds := TOAST_TIME) -> void:
 	if _toast_tween != null:
 		_toast_tween.kill()
 	_toast_label.text = text
 	_toast_label.modulate.a = 1.0
 	_toast_label.visible = true
 	_toast_tween = create_tween()
-	_toast_tween.tween_interval(TOAST_TIME)
+	_toast_tween.tween_interval(seconds)
 	_toast_tween.tween_property(_toast_label, "modulate:a", 0.0, TOAST_FADE_TIME)
 
 

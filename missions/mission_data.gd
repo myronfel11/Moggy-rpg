@@ -24,3 +24,17 @@ extends Resource
 @export var max_wave_size := 8
 ## Clearing this wave completes the mission. 0 means it never ends.
 @export var waves_to_clear := 3
+
+@export_group("Completion reward")
+## The featured item this mission can award when it is cleared. Empty for none.
+@export var reward_item: ItemData
+## Chance (0 to 1) that clearing the mission awards reward_item. The host rolls once for
+## the whole group, so everyone gets it or nobody does.
+@export_range(0.0, 1.0) var reward_chance := 0.0
+
+
+## "Venza Crown - 15%", or "" when the mission has no featured reward.
+func describe_reward() -> String:
+	if reward_item == null:
+		return ""
+	return "%s - %d%%" % [reward_item.display_name, roundi(reward_chance * 100.0)]

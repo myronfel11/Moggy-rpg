@@ -3,17 +3,20 @@
 [ext_resource type="Script" path="res://missions/mission_data.gd" id="1_mission"]
 [ext_resource type="Resource" path="res://enemies/data/scrap_hound.tres" id="2_hound"]
 [ext_resource type="Resource" path="res://enemies/data/plated_brute.tres" id="3_brute"]
+[ext_resource type="Resource" path="res://items/data/venza_crown.tres" id="4_reward"]
 
 [resource]
 script = ExtResource("1_mission")
-id = &"scrapyard_sweep"
-display_name = "Scrapyard Sweep"
-description = "Clear three waves of Scrap Hounds. A good place to gather Scrap."
+id = &"crown"
+display_name = "Crown Vault"
+description = "Five waves guarding a sealed vault, with armoured brutes from wave 2. The Venza Crown is rarely intact."
 level_scene = "res://levels/test_arena/test_arena.tscn"
 enemy_type = ExtResource("2_hound")
-
-elite_from_wave = 99
+elite_type = ExtResource("3_brute")
+elite_from_wave = 2
 first_wave_size = 3
 wave_growth = 1
 max_wave_size = 8
-waves_to_clear = 3
+waves_to_clear = 5
+reward_item = ExtResource("4_reward")
+reward_chance = 0.15

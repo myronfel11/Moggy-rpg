@@ -8,6 +8,16 @@ set PROJECT="%~dp0.."
 echo === Refreshing Godot's script and asset cache ===
 %GODOT% --headless --path %PROJECT% --import >nul 2>&1
 
+echo === Checking test scripts for syntax errors ===
+rem A test whose script fails to load never quits, so catch that before running anything.
+for %%T in (unit_tests smoke_test hub_test net_test net_hub_test) do (
+  %GODOT% --headless --path %PROJECT% --check-only --script res://tests/%%T.gd
+  if errorlevel 1 (
+    echo Syntax error in tests/%%T.gd or a script it uses. See the messages above.
+    exit /b 1
+  )
+)
+
 echo === Unit tests ===
 %GODOT% --headless --path %PROJECT% res://tests/unit_tests.tscn
 if errorlevel 1 exit /b 1

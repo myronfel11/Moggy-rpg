@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemData" format=3]
+
+[ext_resource type="Script" path="res://items/item_data.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+id = &"venza_weapon_parts"
+display_name = "Venza Weapon Components"
+description = "Receivers and springs for a pair of rapid pistols. One of three parts needed to build Venza."
+rarity = 2
+color = Color(1, 0.45, 0.7, 1)

@@ -10,7 +10,8 @@ extends Node
 ## both down ends the mission and brings both back to the hub.
 
 const MAIN := preload("res://main/main.tscn")
-const SWEEP := preload("res://missions/data/scrapyard_sweep.tres")
+const SUIT := preload("res://missions/data/suit.tres")
+const SUIT_ITEM := preload("res://items/data/venza_suit.tres")
 const BREAKER := preload("res://weapons/data/breaker.tres")
 const NOVA := preload("res://characters/data/nova.tres")
 const TIMEOUT := 60.0
@@ -19,7 +20,7 @@ const JOIN_DELAY := 2.0
 var _failed := false
 var _main: Main
 var _client_ready := false
-var _go_down := false
+var _client_suits := -1
 
 
 func _ready() -> void:
@@ -57,7 +58,7 @@ func _run_host() -> void:
 	_check(remote.character == NOVA, "the host sees the client's chosen character in the hub")
 	_check(not (_main.get_level() as Hub).is_starting(), "the client could not start a mission")
 
-	(_main.get_level() as Hub).start_mission(SWEEP)
+	(_main.get_level() as Hub).start_mission(SUIT)
 	var arrived := await _wait_for(func() -> bool: return _main.get_arena() != null and _player_count() == 2, 15.0)
 	_check(arrived, "the host's mission start takes both players along")
 	if not arrived:
@@ -67,14 +68,19 @@ func _run_host() -> void:
 	_check(remote.character == NOVA, "the client's character is the same in the mission")
 	_check(remote.weapon != null and remote.weapon.data == BREAKER, "the host sees the client's own weapon in the mission")
 
-	# Both go down once the first wave is running: the host's player here, the client's
-	# on its own machine.
+	# Clear the mission with its reward made certain: the host rolls once and both
+	# players must get the Suit, each in their own inventory.
 	var director := _main.get_arena().get_node(^"WaveDirector") as WaveDirector
 	await _wait_for(func() -> bool: return director.wave >= 1, 10.0)
-	_go_down_now.rpc()
-	_local().hurtbox.receive_hit(HitInfo.new(1000000.0))
+	var suit_mission: MissionData = SUIT
+	suit_mission.reward_chance = 1.0
+	director.mission_ended.emit(true)
+	director.mission_ended.emit(true)
 	var back := await _wait_for(func() -> bool: return _main.get_level() is Hub and _player_count() == 2, 15.0)
-	_check(back, "everyone down sends both players back to the hub")
+	_check(back, "clearing the mission sends both players back to the hub")
+	_check(_local() != null and _local().inventory.get_count(SUIT_ITEM) == 1, "the host got the Suit exactly once")
+	await _wait_for(func() -> bool: return _client_suits >= 0, 10.0)
+	_check(_client_suits == 1, "the client got the Suit exactly once in its own inventory (got %d)" % _client_suits)
 	await _wait_for(func() -> bool: return multiplayer.get_peers().is_empty(), 10.0)
 
 
@@ -91,7 +97,7 @@ func _run_client() -> void:
 	var panel := console.open_panel(player)
 	_check(panel != null and panel._start.disabled, "the client's Start button is disabled")
 	panel.close()
-	hub.start_mission(SWEEP)
+	hub.start_mission(SUIT)
 	_check(not hub.is_starting(), "the client cannot start a mission")
 
 	player.unlock_weapon(BREAKER)
@@ -106,22 +112,22 @@ func _run_client() -> void:
 		return
 	player = _local()
 	_check(player.character == NOVA and player.loadout == [BREAKER], "the client's own character and loadout come along")
-	await _wait_for(func() -> bool: return _go_down, 15.0)
-	player.hurtbox.receive_hit(HitInfo.new(1000000.0))
-	var back := await _wait_for(func() -> bool: return _main.get_level() is Hub and _local() != null, 15.0)
+	var back := await _wait_for(func() -> bool: return _main.get_level() is Hub and _local() != null, 25.0)
 	_check(back, "the client is back in the hub after the mission")
 	if back:
 		_check(_local().loadout == [BREAKER], "the client still has its loadout in the hub")
+		_report_suits.rpc_id(1, _local().inventory.get_count(SUIT_ITEM))
+		await get_tree().create_timer(0.5).timeout
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _report_suits(count: int) -> void:
+	_client_suits = count
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _ready_for_mission() -> void:
 	_client_ready = true
-
-
-@rpc("authority", "call_remote", "reliable")
-func _go_down_now() -> void:
-	_go_down = true
 
 
 func _local() -> Player:

@@ -3,17 +3,20 @@
 [ext_resource type="Script" path="res://missions/mission_data.gd" id="1_mission"]
 [ext_resource type="Resource" path="res://enemies/data/scrap_hound.tres" id="2_hound"]
 [ext_resource type="Resource" path="res://enemies/data/plated_brute.tres" id="3_brute"]
+[ext_resource type="Resource" path="res://items/data/venza_weapon_parts.tres" id="4_reward"]
 
 [resource]
 script = ExtResource("1_mission")
-id = &"brute_patrol"
-display_name = "Brute Patrol"
-description = "Five waves with armoured Plated Brutes from wave 2. They always carry a Volt Core. Bring something heavy."
+id = &"weapon"
+display_name = "Weapon Cache"
+description = "Four waves, brutes from wave 3, around a smuggler's cache of weapon parts."
 level_scene = "res://levels/test_arena/test_arena.tscn"
 enemy_type = ExtResource("2_hound")
 elite_type = ExtResource("3_brute")
-elite_from_wave = 2
+elite_from_wave = 3
 first_wave_size = 3
 wave_growth = 1
 max_wave_size = 8
-waves_to_clear = 5
+waves_to_clear = 4
+reward_item = ExtResource("4_reward")
+reward_chance = 0.35

@@ -5,8 +5,8 @@ extends Node
 ##   godot --headless --fixed-fps 60 --path <project> res://tests/hub_test.tscn
 
 const MAIN := preload("res://main/main.tscn")
-const SWEEP := "res://missions/data/scrapyard_sweep.tres"
-const PATROL := "res://missions/data/brute_patrol.tres"
+const SUIT := "res://missions/data/suit.tres"
+const CROWN := "res://missions/data/crown.tres"
 const BLADE := preload("res://weapons/data/pulse_blade.tres")
 const BREAKER := preload("res://weapons/data/breaker.tres")
 const EMBER := preload("res://characters/data/ember.tres")
@@ -137,8 +137,13 @@ func _test_mission_success() -> void:
 	var player := _player()
 	var console := hub.get_node(^"NavigationConsole") as NavigationConsole
 	var panel := console.open_panel(player)
-	_check(panel != null and panel.missions.size() == 3, "the console lists three missions")
-	panel.select(load(SWEEP) as MissionData)
+	_check(panel != null and panel.missions.size() == 4, "the console lists four missions")
+	var suit_mission := load(SUIT) as MissionData
+	panel.select(suit_mission)
+	_check(panel._details.text.contains("Venza Suit - 40% on completion"), "the menu shows the reward and its chance")
+	# Make the reward certain for this run so the test does not depend on luck.
+	var real_chance := suit_mission.reward_chance
+	suit_mission.reward_chance = 1.0
 	panel.start()
 	await _frames(2)
 	_check(hub.is_starting() and not player.input.blocked, "starting closes the menu and begins the countdown")
@@ -146,32 +151,44 @@ func _test_mission_success() -> void:
 	_check(arrived, "everyone travels to the mission")
 	var arena := _main.get_arena()
 	player = _player()
-	_check(arena.mission != null and arena.mission.resource_path == SWEEP, "the arena runs the chosen mission")
+	_check(arena.mission != null and arena.mission.resource_path == SUIT, "the arena runs the chosen mission")
 	_check(player.character == EMBER, "the character comes along")
 	_check(player.loadout == [BREAKER, BLADE], "the loadout comes along")
 	_check(player.inventory.get_count(SCRAP) == 2, "the materials come along")
 
 	var scrap_before := player.inventory.get_count(SCRAP)
+	var result_text := [""]
+	var repeated := [false]
 	var back := await _until(func() -> bool:
 		var current := _player()
 		if current == null:
 			return false
 		if _main.get_level() is Hub:
 			return true
+		var level := _main.get_arena()
+		if level != null and level._end_received and not repeated[0]:
+			# Deliver the end-of-mission message a second time: it must not pay out again.
+			repeated[0] = true
+			result_text[0] = level.get_hud().get_message()
+			level._announce_end(true, suit_mission.reward_item.resource_path)
 		current.health.setup(1000000.0)
 		TestBot.swing_and_dodge(current)
 		return false, 60 * 120)
+	suit_mission.reward_chance = real_chance
 	_check(back, "clearing the last wave returns everyone to the hub")
+	_check(result_text[0].contains("MISSION COMPLETE") and result_text[0].contains("Reward: Venza Suit"), "the result shows the reward (got '%s')" % result_text[0].replace("\n", " / "))
 	player = _player()
 	_check(player != null and player.inventory.get_count(SCRAP) > scrap_before, "the loot from the mission is kept (%d Scrap)" % (player.inventory.get_count(SCRAP) if player else 0))
-	_check(_main.profile.has_completed(SWEEP), "the mission is marked as cleared")
+	_check(_main.profile.has_completed(SUIT), "the mission is marked as cleared")
+	_check(player.inventory.get_count(suit_mission.reward_item) == 1, "the reward is in the inventory exactly once")
+	_check(_main.profile.materials.get(suit_mission.reward_item.resource_path, 0) == 1, "the reward is saved in the profile")
 	_check(player.loadout == [BREAKER, BLADE] and player.character == EMBER, "loadout and character are kept")
 
 
 func _test_mission_failure() -> void:
 	print("Mission: failure")
 	var hub := _main.get_level() as Hub
-	hub.start_mission(load(PATROL) as MissionData)
+	hub.start_mission(load(CROWN) as MissionData)
 	var arrived := await _until(func() -> bool: return _main.get_arena() != null and _player() != null, 300)
 	_check(arrived, "a second mission starts")
 	var director := _main.get_arena().get_node(^"WaveDirector") as WaveDirector
@@ -179,7 +196,9 @@ func _test_mission_failure() -> void:
 	_player().hurtbox.receive_hit(HitInfo.new(1000000.0))
 	var back := await _until(func() -> bool: return _main.get_level() is Hub and _player() != null, 600)
 	_check(back, "everyone down ends the mission and returns to the hub")
-	_check(not _main.profile.has_completed(PATROL), "a failed mission is not marked as cleared")
+	_check(not _main.profile.has_completed(CROWN), "a failed mission is not marked as cleared")
+	var crown_item := (load(CROWN) as MissionData).reward_item
+	_check(_player().inventory.get_count(crown_item) == 0, "a failed mission gives no featured reward")
 	_check(_player().is_alive(), "the player is back on their feet in the hub")
 
 

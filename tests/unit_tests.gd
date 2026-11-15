@@ -18,6 +18,7 @@ func _ready() -> void:
 	_test_drops()
 	_test_armor()
 	_test_recipe()
+	_test_mission_rewards()
 	print("UNIT TESTS: %d checks, %d failed" % [_checks, _failures])
 	get_tree().quit(1 if _failures > 0 else 0)
 
@@ -259,3 +260,39 @@ func _test_recipe() -> void:
 	for cost in recipe.costs:
 		complete = complete and cost != null and cost.item != null and cost.amount > 0
 	_check(complete, "every cost names an item and an amount")
+
+
+func _test_mission_rewards() -> void:
+	print("Mission rewards")
+	var expected := {
+		"res://missions/data/crown.tres": ["Venza Crown", 0.15],
+		"res://missions/data/suit.tres": ["Venza Suit", 0.40],
+		"res://missions/data/weapon.tres": ["Venza Weapon Components", 0.35],
+	}
+	for path: String in expected:
+		var mission := load(path) as MissionData
+		var ok := mission != null and mission.reward_item != null
+		ok = ok and mission.reward_item.display_name == expected[path][0]
+		ok = ok and is_equal_approx(mission.reward_chance, expected[path][1])
+		_check(ok, "%s rewards %s at %d%%" % [path.get_file(), expected[path][0], roundi(expected[path][1] * 100.0)])
+
+	var test_mission := (load("res://missions/data/crown.tres") as MissionData).duplicate() as MissionData
+	for chance: float in [0.0, 0.15, 1.0]:
+		test_mission.reward_chance = chance
+		var hits := 0
+		for i in 4000:
+			if Arena.roll_reward(test_mission) != "":
+				hits += 1
+		var expected_hits := chance * 4000.0
+		_check(absf(hits - expected_hits) <= maxf(4000.0 * 0.025, 0.5), "a %d%% reward lands about %d times in 4000 (got %d)" % [roundi(chance * 100.0), roundi(expected_hits), hits])
+	test_mission.reward_chance = 1.0
+	_check(Arena.roll_reward(test_mission) == test_mission.reward_item.resource_path, "a successful roll returns the reward item")
+	_check(Arena.roll_reward(load("res://missions/data/endless_siege.tres") as MissionData) == "", "a mission without a featured reward never awards one")
+
+	var crown_mission := load("res://missions/data/crown.tres") as MissionData
+	var won := Arena.describe_result(crown_mission, true, crown_mission.reward_item.resource_path)
+	var missed := Arena.describe_result(crown_mission, true, "")
+	_check(won.contains("MISSION COMPLETE") and won.contains("Reward: Venza Crown"), "a won reward is announced")
+	_check(missed.contains("No Venza Crown this time (15% chance)"), "a missed reward is announced with its chance")
+	_check(Arena.describe_result(crown_mission, false, "") == "MISSION FAILED", "a failed mission announces no reward")
+	_check(MissionPanel.describe(crown_mission, null).contains("Venza Crown - 15% on completion"), "the mission menu text shows reward and chance")
