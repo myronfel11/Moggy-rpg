@@ -105,6 +105,12 @@ menus extend `MenuPanel` and block the player's input while open.
     extend `AbilityBehavior`; anything that moves the player uses
     `Player.begin_custom_motion()`; visible state for teammates goes in `Player.net_flags`
     (FLAG_*), one-off effects through `AbilityBehavior.show_remote()`.
+  - Boss fights: one `BossEncounter` (host) owns every rule; clients only send requests
+    (`ask_pickup`, `ask_slam`) that the host checks against the slot state. Add phases
+    to its `ALLOWED` table, never jump states directly. Boss scripts load their data at
+    runtime (`load`), not `preload`, to avoid preload loops (see DECISIONS T-17).
+    Hold-to-use interactions: set `Station.hold_time` and override `can_interact` and
+    `_complete`.
   - Loot is rolled once by the host (`Enemy.roll_drops`) and sent with the death RPC;
     every peer spawns its own copy of the same pieces. Never roll randomness on clients.
   - Player intent goes through `PlayerInput`; gameplay code never reads `Input` directly.

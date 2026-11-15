@@ -48,6 +48,7 @@ Working together on GitHub and playing online from different homes: [docs/CONTRI
 | Zenith ultimate (when the bar is full) | 4 |
 | Grapple (everyone) | Hold right mouse button; let go to launch |
 | Use a station (Navigation, Fabricator, Armory) | E (while standing next to it) |
+| Pick up or slam a boss bomb | Hold E |
 | Swap weapon | Q |
 | Back to menu / quit from menu | Esc |
 
