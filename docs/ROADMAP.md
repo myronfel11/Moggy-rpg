@@ -89,16 +89,16 @@ Goal: friends meet in a safe room, get their loadouts ready, and start missions 
 - ✅ Hub test (offline) and co-op hub test (two processes) in `tools\test.cmd`
 - ⬜ **Your playtest, solo and with a friend**
 
-## Milestone 4: Venza, mission rewards, Zenith, grappling 🟡
+## Milestone 4: Venza, mission rewards, Zenith, grappling ✅
 
 - ✅ Missions with featured rewards: Crown Vault (Venza Crown 15%), Suit Foundry (Suit 40%),
   Weapon Cache (Weapon Components 35%); host rolls once, everyone gets the same result
 - ✅ Character crafting at the Fabricator (crafting menu); Venza unlocks per player, saved
 - ✅ Venza: Twin Sparrows pistols, skating, wall riding, trails (playtested: "feels good")
-- 🟡 Abilities: Boost (1), Fade (2), Rush (3), with HUD cooldowns
-- 🟡 Zenith: universal kill-based charge, crown glow, Venza's arm blades with auto-lock lunges
-- 🟡 Grappling for every character, with anchor posts in the hub and arena
-- ⬜ **Your playtest of abilities, Zenith and grappling**
+- ✅ Abilities: Boost (1), Fade (2), Rush (3), with HUD cooldowns
+- ✅ Zenith: universal kill-based charge, crown glow, Venza's arm blades with auto-lock lunges
+- ✅ Grappling for every character, with anchor posts in the hub and arena
+- ✅ Playtested 2026-11-14: "feels good" (solo). Still to do: an internet session with your friend.
 
 ## Phase 4: Combat depth ⬜
 
