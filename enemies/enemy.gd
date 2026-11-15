@@ -208,7 +208,7 @@ func _on_hit_received(hit: HitInfo) -> void:
 		return
 	velocity = hit.direction * hit.knockback * (1.0 - data.knockback_resistance)
 	_hit_stop = maxf(_hit_stop, hit.hit_stop)
-	if data.stagger_time > 0.0 and _can_be_interrupted():
+	if hit.staggers and data.stagger_time > 0.0 and _can_be_interrupted():
 		_stagger = data.stagger_time
 		_on_interrupted()
 	var glancing := hit.dealt < hit.damage * GLANCING_RATIO

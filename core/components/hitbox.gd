@@ -8,6 +8,10 @@ extends Area2D
 
 signal landed(hurtbox: Hurtbox, hit: HitInfo)
 
+## Copied onto every hit: whether it interrupts the target, and which weapon dealt it.
+var staggers := true
+var weapon_id: StringName = &""
+
 var _active := false
 var _wait_frames := 0
 var _damage := 0.0
@@ -51,6 +55,10 @@ func _physics_process(_delta: float) -> void:
 		# Remember the target even if the hit is ignored, so a dodged attack stays dodged.
 		_already_hit.append(hurtbox)
 		var hit := HitInfo.new(_damage, _knockback, _direction_to(hurtbox), _hit_stop, _source)
+		hit.staggers = staggers
+		hit.weapon_id = weapon_id
+		if _source is Player:
+			hit.attacker_peer = (_source as Player).peer_id
 		if hurtbox.receive_hit(hit):
 			landed.emit(hurtbox, hit)
 

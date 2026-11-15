@@ -40,6 +40,9 @@ properties/4/replication_mode = 2
 properties/5/path = NodePath(".:net_character_path")
 properties/5/spawn = true
 properties/5/replication_mode = 2
+properties/6/path = NodePath(".:net_flags")
+properties/6/spawn = true
+properties/6/replication_mode = 2
 
 [node name="Player" type="CharacterBody2D"]
 collision_layer = 2
@@ -59,6 +62,11 @@ script = ExtResource("4_visual")
 use_parent_material = true
 color = Color(0.25, 0.85, 1, 1)
 polygon = PackedVector2Array(-5, -7, 5, -7, 5, 7, -5, 7)
+
+[node name="Crown" type="Polygon2D" parent="Visual"]
+use_parent_material = true
+color = Color(1, 0.85, 0.35, 1)
+polygon = PackedVector2Array(-4, -7, -4, -10, -2, -8, 0, -11, 2, -8, 4, -10, 4, -7)
 
 [node name="Visor" type="Polygon2D" parent="Visual"]
 use_parent_material = true

@@ -10,7 +10,7 @@ echo === Refreshing Godot's script and asset cache ===
 
 echo === Checking test scripts for syntax errors ===
 rem A test whose script fails to load never quits, so catch that before running anything.
-for %%T in (unit_tests smoke_test hub_test net_test net_hub_test) do (
+for %%T in (unit_tests smoke_test hub_test venza_test net_test net_hub_test) do (
   %GODOT% --headless --path %PROJECT% --check-only --script res://tests/%%T.gd
   if errorlevel 1 (
     echo Syntax error in tests/%%T.gd or a script it uses. See the messages above.
@@ -28,6 +28,10 @@ if errorlevel 1 exit /b 1
 
 echo === Hub test (hub, crafting, armory, missions, saving) ===
 %GODOT% --headless --fixed-fps 60 --path %PROJECT% res://tests/hub_test.tscn
+if errorlevel 1 exit /b 1
+
+echo === Venza test (pistols, skating, wall riding, trails) ===
+%GODOT% --headless --fixed-fps 60 --path %PROJECT% res://tests/venza_test.tscn
 if errorlevel 1 exit /b 1
 
 echo === Co-op test (a host and a client on this PC) ===

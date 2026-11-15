@@ -1,6 +1,8 @@
 [gd_resource type="Resource" script_class="CharacterData" format=3]
 
 [ext_resource type="Script" path="res://characters/character_data.gd" id="1_character"]
+[ext_resource type="Resource" path="res://weapons/data/twin_sparrows.tres" id="2_pistols"]
+[ext_resource type="PackedScene" path="res://characters/passives/skating.tscn" id="3_skating"]
 
 [resource]
 script = ExtResource("1_character")
@@ -8,3 +10,7 @@ id = &"venza"
 display_name = "Venza"
 color = Color(0.95, 0.3, 0.75, 1)
 unlocked_by_default = false
+crown_color = Color(1, 0.8, 0.3, 1)
+max_health = 90.0
+signature_weapon = ExtResource("2_pistols")
+passive_scene = ExtResource("3_skating")

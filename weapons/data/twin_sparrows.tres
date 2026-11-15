@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="ProjectileWeaponData" format=3]
+
+[ext_resource type="Script" path="res://weapons/behaviors/projectile/projectile_weapon_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://weapons/behaviors/projectile/projectile_weapon.tscn" id="2_behavior"]
+
+[resource]
+script = ExtResource("1_data")
+fire_interval = 0.07
+projectile_speed = 520.0
+projectile_range = 190.0
+spread_degrees = 6.0
+muzzle_gap = 3.0
+muzzle_distance = 9.0
+projectile_radius = 2.5
+projectile_color = Color(1, 0.55, 0.85, 1)
+id = &"twin_sparrows"
+display_name = "Twin Sparrows"
+description = "Venza's paired automatic pistols. Each bullet is weak, but they never stop firing, even mid-skate."
+behavior_scene = ExtResource("2_behavior")
+damage = 3.0
+knockback = 12.0
+hit_stop = 0.0
+screen_shake = 0.04
+windup = 0.0
+active_time = 0.05
+recovery = 0.0
+move_speed_multiplier = 1.0
+lunge_speed = 0.0
+staggers = false

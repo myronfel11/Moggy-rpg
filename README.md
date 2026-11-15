@@ -41,6 +41,7 @@ Working together on GitHub and playing online from different homes: [docs/CONTRI
 | Aim | Mouse |
 | Attack | Left mouse button (hold to keep swinging) |
 | Dash | Space |
+| Skate (Venza only) | Hold Shift while moving |
 | Use a station (Navigation, Fabricator, Armory) | E (while standing next to it) |
 | Swap weapon | Q |
 | Back to menu / quit from menu | Esc |

@@ -1,0 +1,19 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://characters/passives/skating.gd" id="1_skating"]
+[ext_resource type="Script" path="res://core/fx/trail.gd" id="2_trail"]
+
+[node name="Skating" type="Node2D"]
+script = ExtResource("1_skating")
+
+[node name="TrailLeft" type="Line2D" parent="."]
+width = 2.0
+default_color = Color(1, 0.35, 0.8, 0.85)
+script = ExtResource("2_trail")
+offset = Vector2(-3, 5)
+
+[node name="TrailRight" type="Line2D" parent="."]
+width = 2.0
+default_color = Color(0.4, 0.9, 1, 0.85)
+script = ExtResource("2_trail")
+offset = Vector2(3, 5)

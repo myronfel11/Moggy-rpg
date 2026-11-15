@@ -28,6 +28,8 @@ var move := Vector2.ZERO
 var aim_direction := Vector2.RIGHT
 ## True while the attack button is held down.
 var attack_held := false
+## True while the skate button is held down (characters with a skating passive).
+var skate_held := false
 
 var _dash_buffer := 0.0
 var _attack_buffer := 0.0
@@ -41,6 +43,7 @@ func update(delta: float) -> void:
 		# A menu is open: the character stands still and ignores keys and clicks.
 		move = Vector2.ZERO
 		attack_held = false
+		skate_held = false
 		_dash_buffer = 0.0
 		_attack_buffer = 0.0
 		_interact_buffer = 0.0
@@ -61,6 +64,7 @@ func update(delta: float) -> void:
 	if to_mouse.length() > AIM_DEADZONE:
 		aim_direction = to_mouse.normalized()
 	attack_held = Input.is_action_pressed(&"attack")
+	skate_held = Input.is_action_pressed(&"skate")
 	if Input.is_action_just_pressed(&"dash"):
 		press_dash()
 	if Input.is_action_just_pressed(&"attack"):
