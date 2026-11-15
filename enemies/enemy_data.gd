@@ -29,6 +29,11 @@ extends Resource
 ## What this enemy can drop when it dies. Every line is rolled separately.
 @export var drops: Array[DropEntry] = []
 
+@export_group("Zenith")
+## Zenith charge (out of 100) for defeating this enemy: full for the killer's Zenith weapon,
+## half otherwise.
+@export var zenith_value := 8.0
+
 @export_group("Look (placeholder)")
 ## Colour of the placeholder body shape.
 @export var color := Color(1.0, 0.25, 0.45)

@@ -38,7 +38,8 @@ func receive_hit(hit: HitInfo) -> bool:
 		if not forward_hits_to_authority:
 			return false
 		_request_hit.rpc_id(
-			get_multiplayer_authority(), hit.damage, hit.knockback, hit.direction, hit.hit_stop
+			get_multiplayer_authority(), hit.damage, hit.knockback, hit.direction, hit.hit_stop,
+			hit.staggers, hit.weapon_id
 		)
 		# Counted as landed here, so the attacker still gets hit-stop and screen shake.
 		return true
@@ -50,6 +51,14 @@ func receive_hit(hit: HitInfo) -> bool:
 
 ## A hit landed on another peer's screen, applied here by the owner.
 @rpc("any_peer", "call_remote", "reliable")
-func _request_hit(damage: float, knockback: float, direction: Vector2, hit_stop: float) -> void:
+func _request_hit(
+	damage: float, knockback: float, direction: Vector2, hit_stop: float,
+	staggers: bool, weapon_id: StringName
+) -> void:
 	if is_multiplayer_authority():
-		receive_hit(HitInfo.new(damage, knockback, direction, hit_stop))
+		var hit := HitInfo.new(damage, knockback, direction, hit_stop)
+		hit.staggers = staggers
+		hit.weapon_id = weapon_id
+		# The sender is the attacking player (only players' hits are forwarded).
+		hit.attacker_peer = multiplayer.get_remote_sender_id()
+		receive_hit(hit)

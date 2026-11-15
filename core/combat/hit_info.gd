@@ -18,6 +18,12 @@ var direction: Vector2
 var hit_stop: float
 ## Who dealt the hit. May have been freed since; check is_instance_valid() before use.
 var source: Node
+## Whether this hit interrupts what the target is doing.
+var staggers := true
+## Which weapon dealt the hit (WeaponData.id), "" if not from a weapon.
+var weapon_id: StringName = &""
+## Network peer of the player who dealt the hit (0 when not from a player).
+var attacker_peer := 0
 
 
 func _init(

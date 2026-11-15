@@ -7,13 +7,14 @@
 [ext_resource type="Resource" path="res://characters/data/ember.tres" id="5_ember"]
 [ext_resource type="Resource" path="res://characters/data/moss.tres" id="6_moss"]
 [ext_resource type="Resource" path="res://characters/data/nova.tres" id="7_nova"]
+[ext_resource type="Resource" path="res://characters/data/venza.tres" id="8_venza"]
 
 [sub_resource type="CircleShape2D" id="shape_range"]
 radius = 34.0
 
 [node name="ArmoryStation" type="Node2D"]
 script = ExtResource("1_armory")
-characters = Array[ExtResource("3_character")]([ExtResource("4_volt"), ExtResource("5_ember"), ExtResource("6_moss"), ExtResource("7_nova")])
+characters = Array[ExtResource("3_character")]([ExtResource("4_volt"), ExtResource("5_ember"), ExtResource("6_moss"), ExtResource("7_nova"), ExtResource("8_venza")])
 
 [node name="Body" type="StaticBody2D" parent="."]
 script = ExtResource("2_wall")

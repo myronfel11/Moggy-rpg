@@ -26,7 +26,7 @@ func _build(box: VBoxContainer) -> void:
 		button.pressed.connect(select.bind(mission))
 		_list.add_child(button)
 	_details = make_label("", true)
-	_details.custom_minimum_size = Vector2(0.0, 48.0)
+	_details.custom_minimum_size = Vector2(0.0, 56.0)
 	box.add_child(_details)
 	_start = make_button("Start mission")
 	_start.pressed.connect(start)
@@ -41,8 +41,20 @@ func _build(box: VBoxContainer) -> void:
 
 func select(mission: MissionData) -> void:
 	selected = mission
+	_details.text = describe(mission, player)
+
+
+## The details text for a mission: length, featured reward with its chance, and how many
+## of that reward this player already has.
+static func describe(mission: MissionData, for_player: Player) -> String:
 	var length := "%d waves" % mission.waves_to_clear if mission.waves_to_clear > 0 else "Endless"
-	_details.text = "%s\n%s" % [length, mission.description]
+	var reward := "Reward: Scrap and Volt Cores only"
+	if mission.reward_item != null:
+		var owned := for_player.inventory.get_count(mission.reward_item) if for_player != null else 0
+		reward = "Reward: %s - %d%% on completion (you have %d)" % [
+			mission.reward_item.display_name, roundi(mission.reward_chance * 100.0), owned,
+		]
+	return "%s.  %s\n%s" % [length, reward, mission.description]
 
 
 ## Starts the selected mission for everyone. Host only.

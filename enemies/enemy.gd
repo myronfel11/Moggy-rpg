@@ -32,6 +32,12 @@ var data: EnemyData
 var net_position := Vector2.ZERO
 ## Item file paths of the loot this enemy dropped when it died (empty while alive).
 var last_loot := PackedStringArray()
+## Network peer of the player whose hit killed this enemy (0 if unknown), and the weapon.
+var killer_peer := 0
+var killer_weapon: StringName = &""
+
+var _last_attacker_peer := 0
+var _last_weapon_id: StringName = &""
 
 var _hit_stop := 0.0
 var _stagger := 0.0
@@ -78,7 +84,9 @@ func find_target() -> Player:
 	var best_distance := INF
 	for node in get_tree().get_nodes_in_group(&"players"):
 		var player := node as Player
-		if player == null or not player.is_alive():
+		# Invisible players are not picked as a new target (an attack already under way
+		# still finishes toward where they were).
+		if player == null or not player.is_targetable():
 			continue
 		var distance := global_position.distance_squared_to(player.global_position)
 		if distance < best_distance:
@@ -206,9 +214,11 @@ func _can_be_interrupted() -> bool:
 func _on_hit_received(hit: HitInfo) -> void:
 	if _dead:
 		return
+	_last_attacker_peer = hit.attacker_peer
+	_last_weapon_id = hit.weapon_id
 	velocity = hit.direction * hit.knockback * (1.0 - data.knockback_resistance)
 	_hit_stop = maxf(_hit_stop, hit.hit_stop)
-	if data.stagger_time > 0.0 and _can_be_interrupted():
+	if hit.staggers and data.stagger_time > 0.0 and _can_be_interrupted():
 		_stagger = data.stagger_time
 		_on_interrupted()
 	var glancing := hit.dealt < hit.damage * GLANCING_RATIO
@@ -232,8 +242,8 @@ func _net_flash(glancing: bool) -> void:
 func _on_died() -> void:
 	# The host rolls the loot once, so every player gets the same drops.
 	var loot := roll_drops(data.drops)
-	_die(loot)
-	_net_die.rpc(loot)
+	_die(loot, _last_attacker_peer, _last_weapon_id)
+	_net_die.rpc(loot, _last_attacker_peer, _last_weapon_id)
 	# Only the host removes the enemy; removing it also removes it on every client.
 	get_tree().create_timer(DEATH_TIME, false).timeout.connect(queue_free)
 
@@ -241,19 +251,23 @@ func _on_died() -> void:
 ## On co-op clients: the host's copy died. Play the death and drop this player's copy of
 ## the loot the host rolled.
 @rpc("authority", "call_remote", "reliable")
-func _net_die(loot: PackedStringArray) -> void:
+func _net_die(loot: PackedStringArray, killer: int, weapon_id: StringName) -> void:
 	if not _dead:
-		_die(loot)
+		_die(loot, killer, weapon_id)
 
 
 ## Everything a death looks like, on every peer.
-func _die(loot: PackedStringArray) -> void:
+func _die(loot: PackedStringArray, killer: int = 0, weapon_id: StringName = &"") -> void:
 	_dead = true
 	_on_interrupted()
 	collision_layer = 0
 	collision_mask = 0
 	hurtbox.set_deferred(&"monitorable", false)
+	killer_peer = killer
+	killer_weapon = weapon_id
 	_spawn_loot(loot)
+	# Every peer credits its own player's Zenith (see PlayerAbilities.on_enemy_killed).
+	get_tree().call_group(&"zenith_listeners", &"on_enemy_killed", data.zenith_value, killer, weapon_id)
 	died.emit(self)
 	visual.flash(DEATH_TIME)
 	var tween := create_tween().set_parallel()

@@ -10,16 +10,18 @@ extends Node
 ## both down ends the mission and brings both back to the hub.
 
 const MAIN := preload("res://main/main.tscn")
-const SWEEP := preload("res://missions/data/scrapyard_sweep.tres")
+const SUIT := preload("res://missions/data/suit.tres")
+const SUIT_ITEM := preload("res://items/data/venza_suit.tres")
 const BREAKER := preload("res://weapons/data/breaker.tres")
-const NOVA := preload("res://characters/data/nova.tres")
+const VENZA := preload("res://characters/data/venza.tres")
+const HUB_ANCHOR := Vector2(240.0, 226.0)
 const TIMEOUT := 60.0
 const JOIN_DELAY := 2.0
 
 var _failed := false
 var _main: Main
 var _client_ready := false
-var _go_down := false
+var _client_suits := -1
 
 
 func _ready() -> void:
@@ -53,28 +55,38 @@ func _run_host() -> void:
 		_fail("the client never finished its hub checks")
 		return
 	var remote := _remote_player()
-	await _wait_for(func() -> bool: return remote.character == NOVA, 3.0)
-	_check(remote.character == NOVA, "the host sees the client's chosen character in the hub")
+	await _wait_for(func() -> bool: return remote.character == VENZA, 3.0)
+	_check(remote.character == VENZA, "the host sees the client's chosen character in the hub")
 	_check(not (_main.get_level() as Hub).is_starting(), "the client could not start a mission")
+	await _wait_for(func() -> bool: return remote.has_flag(Player.FLAG_INVISIBLE) and remote.has_flag(Player.FLAG_GRAPPLING), 3.0)
+	_check(remote.has_flag(Player.FLAG_INVISIBLE) and not remote.is_targetable(), "the host sees the client's Fade, so enemies would ignore her")
+	_check(remote.has_flag(Player.FLAG_GRAPPLING) and remote.net_grapple_anchor.distance_to(HUB_ANCHOR) < 8.0, "the host sees the client's grapple and where it is attached")
+	await _wait_for(func() -> bool: return not remote.has_flag(Player.FLAG_GRAPPLING), 4.0)
+	_check(not remote.has_flag(Player.FLAG_GRAPPLING), "the host sees the client let go")
 
-	(_main.get_level() as Hub).start_mission(SWEEP)
+	(_main.get_level() as Hub).start_mission(SUIT)
 	var arrived := await _wait_for(func() -> bool: return _main.get_arena() != null and _player_count() == 2, 15.0)
 	_check(arrived, "the host's mission start takes both players along")
 	if not arrived:
 		return
 	remote = _remote_player()
 	await _wait_for(func() -> bool: return remote.weapon != null and remote.weapon.data == BREAKER, 3.0)
-	_check(remote.character == NOVA, "the client's character is the same in the mission")
+	_check(remote.character == VENZA, "the client's character is the same in the mission")
 	_check(remote.weapon != null and remote.weapon.data == BREAKER, "the host sees the client's own weapon in the mission")
 
-	# Both go down once the first wave is running: the host's player here, the client's
-	# on its own machine.
+	# Clear the mission with its reward made certain: the host rolls once and both
+	# players must get the Suit, each in their own inventory.
 	var director := _main.get_arena().get_node(^"WaveDirector") as WaveDirector
 	await _wait_for(func() -> bool: return director.wave >= 1, 10.0)
-	_go_down_now.rpc()
-	_local().hurtbox.receive_hit(HitInfo.new(1000000.0))
+	var suit_mission: MissionData = SUIT
+	suit_mission.reward_chance = 1.0
+	director.mission_ended.emit(true)
+	director.mission_ended.emit(true)
 	var back := await _wait_for(func() -> bool: return _main.get_level() is Hub and _player_count() == 2, 15.0)
-	_check(back, "everyone down sends both players back to the hub")
+	_check(back, "clearing the mission sends both players back to the hub")
+	_check(_local() != null and _local().inventory.get_count(SUIT_ITEM) == 1, "the host got the Suit exactly once")
+	await _wait_for(func() -> bool: return _client_suits >= 0, 10.0)
+	_check(_client_suits == 1, "the client got the Suit exactly once in its own inventory (got %d)" % _client_suits)
 	await _wait_for(func() -> bool: return multiplayer.get_peers().is_empty(), 10.0)
 
 
@@ -91,37 +103,46 @@ func _run_client() -> void:
 	var panel := console.open_panel(player)
 	_check(panel != null and panel._start.disabled, "the client's Start button is disabled")
 	panel.close()
-	hub.start_mission(SWEEP)
+	hub.start_mission(SUIT)
 	_check(not hub.is_starting(), "the client cannot start a mission")
-
+	# Become Venza, carrying only the Breaker so the host can check the right weapon.
+	player.unlock_character(VENZA)
 	player.unlock_weapon(BREAKER)
-	player.set_loadout([BREAKER])
-	player.set_character(NOVA)
+	var breaker_only: Array[WeaponData] = [BREAKER]
+	player.set_loadout(breaker_only)
+	player.set_character(VENZA)
+	# Use Fade and grapple the hub's anchor post so the host can see both.
+	player.abilities.use(1)
+	player.input.aim_direction = (HUB_ANCHOR - player.global_position).normalized()
+	player.input.grapple_held = true
 	await get_tree().create_timer(0.5).timeout
+	_check(player.grapple.attached, "the client grapples the hub's anchor post")
 	_ready_for_mission.rpc_id(1)
+	await get_tree().create_timer(1.5).timeout
+	player.input.grapple_held = false
 
 	var arrived := await _wait_for(func() -> bool: return _main.get_arena() != null and _local() != null, 15.0)
 	_check(arrived, "the client is taken to the mission")
 	if not arrived:
 		return
 	player = _local()
-	_check(player.character == NOVA and player.loadout == [BREAKER], "the client's own character and loadout come along")
-	await _wait_for(func() -> bool: return _go_down, 15.0)
-	player.hurtbox.receive_hit(HitInfo.new(1000000.0))
-	var back := await _wait_for(func() -> bool: return _main.get_level() is Hub and _local() != null, 15.0)
+	_check(player.character == VENZA and player.loadout == [BREAKER], "the client's own character and loadout come along")
+	var back := await _wait_for(func() -> bool: return _main.get_level() is Hub and _local() != null, 25.0)
 	_check(back, "the client is back in the hub after the mission")
 	if back:
 		_check(_local().loadout == [BREAKER], "the client still has its loadout in the hub")
+		_report_suits.rpc_id(1, _local().inventory.get_count(SUIT_ITEM))
+		await get_tree().create_timer(0.5).timeout
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _report_suits(count: int) -> void:
+	_client_suits = count
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _ready_for_mission() -> void:
 	_client_ready = true
-
-
-@rpc("authority", "call_remote", "reliable")
-func _go_down_now() -> void:
-	_go_down = true
 
 
 func _local() -> Player:

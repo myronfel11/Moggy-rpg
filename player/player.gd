@@ -23,17 +23,30 @@ signal weapon_unlocked(data: WeaponData)
 signal loadout_changed
 ## Emitted when the character (look) changes.
 signal character_changed(data: CharacterData)
+## Emitted when a crafted character is unlocked.
+signal character_unlocked(data: CharacterData)
 
-enum State { MOVE, DASH, DEAD }
+## CUSTOM: an ability or mechanic (dash attack, Zenith lunge, grapple) drives movement
+## through begin_custom_motion().
+enum State { MOVE, DASH, DEAD, CUSTOM }
 
 const GHOST_INTERVAL := 0.035
 const GHOST_FADE_TIME := 0.18
 const GHOST_COLOR := Color(0.35, 0.9, 1.0, 0.55)
+const BOOST_GHOST_INTERVAL := 0.06
 const BLINK_PERIOD := 0.1
 const RESPAWN_PROTECTION := 1.0
 const KILL_SHAKE_BONUS := 0.2
 ## How many weapons a player carries into a fight.
 const LOADOUT_SLOTS := 2
+## Status bits synced to other peers in net_flags, so they can show effects.
+const FLAG_SKATING := 1
+const FLAG_WALL_RIDING := 2
+const FLAG_BOOSTED := 4
+const FLAG_INVISIBLE := 8
+const FLAG_ZENITH_READY := 16
+const FLAG_ZENITH_ACTIVE := 32
+const FLAG_GRAPPLING := 64
 ## How quickly another peer's player glides to its reported position. Higher is snappier.
 const PUPPET_SMOOTHING := 25.0
 ## Further off than this (respawn, lag spike), jump instead of gliding. In pixels.
@@ -46,6 +59,9 @@ const PUPPET_SNAP_DISTANCE := 64.0
 @export var acceleration := 1400.0
 ## How fast the player stops when no direction is held. Higher means less sliding.
 @export var friction := 1800.0
+## How fast extra speed bleeds off when moving faster than running speed (after a skate,
+## a grapple launch or a boost ends). Low values let momentum carry.
+@export var momentum_friction := 420.0
 
 @export_group("Dash")
 ## Speed during the dash. Distance covered is dash_speed x dash_duration.
@@ -90,6 +106,12 @@ var net_character_path := "":
 		net_character_path = value
 		if is_node_ready() and not is_local():
 			_character_from_path(value)
+## Status bits (FLAG_*), set by the owner and synced so other peers show the same effects.
+var net_flags := 0
+## Where the grapple is attached, so other peers can draw the rope.
+var net_grapple_anchor := Vector2.ZERO
+## The character's movement passive (Venza's skating), or null.
+var passive: CharacterPassive
 ## The equipped weapon's behaviour node. Its stats are in weapon.data.
 var weapon: WeaponBehavior
 ## Every weapon this player owns, in the order they were obtained.
@@ -98,6 +120,8 @@ var weapons: Array[WeaponData] = []
 var loadout: Array[WeaponData] = []
 ## How the player looks. Chosen in the armory.
 var character: CharacterData
+## Characters this player has crafted (the starting ones are always available).
+var unlocked_characters: Array[CharacterData] = []
 
 var _dash_direction := Vector2.RIGHT
 var _dash_time_left := 0.0
@@ -108,6 +132,13 @@ var _iframes := 0.0
 var _blinking := false
 ## Seconds of impact freeze remaining.
 var _hit_stop := 0.0
+var _speed_multipliers: Dictionary = {}
+var _dash_entry_speed := 0.0
+var _custom_step: Callable
+var _custom_allows_attack := false
+var _ghost_burst_left := 0.0
+var _weapon_override := false
+var _weapon_before_override: WeaponData
 
 @onready var input: PlayerInput = $PlayerInput
 @onready var health: HealthComponent = $HealthComponent
@@ -115,10 +146,14 @@ var _hit_stop := 0.0
 @onready var inventory: Inventory = $Inventory
 @onready var visual: FlashVisual = $Visual
 @onready var weapon_pivot: Node2D = $WeaponPivot
+@onready var abilities: PlayerAbilities = $Abilities
+@onready var grapple: Grapple = $Grapple
 
 
 func _ready() -> void:
 	add_to_group(&"players")
+	abilities.setup(self)
+	grapple.setup(self)
 	hurtbox.hit_received.connect(_on_hit_received)
 	health.died.connect(_on_died)
 	var synced_weapon := net_weapon_path
@@ -187,22 +222,79 @@ func set_loadout(chosen: Array[WeaponData]) -> void:
 		equip(loadout[0] if not loadout.is_empty() else null)
 
 
-## Sets how the player looks. Other peers see it through net_character_path.
-func set_character(data: CharacterData) -> void:
+## True if this player may choose [param data]: unlocked from the start, or crafted.
+func owns_character(data: CharacterData) -> bool:
 	if data == null:
+		return false
+	if data.unlocked_by_default:
+		return true
+	for unlocked in unlocked_characters:
+		if unlocked.id == data.id:
+			return true
+	return false
+
+
+## Unlocks a crafted character for good.
+func unlock_character(data: CharacterData) -> void:
+	if data == null or owns_character(data):
 		return
+	unlocked_characters.append(data)
+	# The character's own weapon is owned for good from now on.
+	if data.signature_weapon != null:
+		unlock_weapon(data.signature_weapon)
+	character_unlocked.emit(data)
+
+
+## Replaces the crafted characters at once (loading a saved profile).
+func set_unlocked_characters(list: Array[CharacterData]) -> void:
+	unlocked_characters.clear()
+	for data in list:
+		if data != null and not data.unlocked_by_default and not owns_character(data):
+			unlocked_characters.append(data)
+
+
+## Sets how the player looks. Other peers see it through net_character_path.
+## A character this player has not unlocked is refused, unless [param check] is false
+## (used when showing another peer's player, whose unlocks this machine does not know).
+func set_character(data: CharacterData, check := true) -> void:
+	if data == null or (check and not owns_character(data)):
+		return
+	var changed := character != data
 	character = data
 	var body := visual.get_node_or_null(^"Body") as Polygon2D
 	if body != null:
 		body.color = data.color
+	var crown := visual.get_node_or_null(^"Crown") as Polygon2D
+	if crown != null:
+		crown.color = data.crown_color
+	if changed:
+		_set_passive(data.passive_scene)
+		abilities.rebuild(data)
 	if is_local():
 		net_character_path = data.resource_path
+		if not is_equal_approx(health.max_health, data.max_health):
+			health.setup(data.max_health)
 	character_changed.emit(data)
+
+
+## Replaces the character's movement passive.
+func _set_passive(scene: PackedScene) -> void:
+	if passive != null:
+		passive.interrupt()
+		passive.queue_free()
+		passive = null
+	set_flag(FLAG_SKATING, false)
+	set_flag(FLAG_WALL_RIDING, false)
+	if scene == null:
+		return
+	passive = scene.instantiate() as CharacterPassive
+	add_child(passive)
+	passive.setup(self)
 
 
 func _character_from_path(path: String) -> void:
 	if path != "" and (character == null or character.resource_path != path):
-		set_character(load(path) as CharacterData)
+		set_character(load(path) as CharacterData, false)
 
 
 func _loadout_has(data: WeaponData) -> bool:
@@ -307,14 +399,145 @@ func _physics_process(delta: float) -> void:
 		return
 	_tick_timers(delta)
 	_update_aim()
+	abilities.tick(delta)
+	grapple.update(delta)
 	match state:
 		State.MOVE:
 			_move_state(delta)
 		State.DASH:
 			_dash_state(delta)
+		State.CUSTOM:
+			_custom_state(delta)
 	if weapon != null:
 		weapon.tick(delta)
 	move_and_slide()
+	if passive != null and state == State.MOVE:
+		passive.after_move(delta)
+	_update_effects(delta)
+
+
+## Hands movement to [param step] until it returns false or end_custom_motion() is called.
+## [param step] is called every physics frame with delta and sets velocity. If
+## [param allows_attack] is true the player can still attack meanwhile.
+func begin_custom_motion(step: Callable, allows_attack := false) -> void:
+	if state == State.DEAD:
+		return
+	if passive != null:
+		passive.interrupt()
+	if grapple.attached and step.get_object() != grapple:
+		# Another ability is taking over movement: let go of the rope.
+		grapple.cancel()
+	_custom_step = step
+	_custom_allows_attack = allows_attack
+	state = State.CUSTOM
+
+
+func end_custom_motion() -> void:
+	_custom_step = Callable()
+	if state == State.CUSTOM:
+		state = State.MOVE
+
+
+func is_in_custom_motion() -> bool:
+	return state == State.CUSTOM
+
+
+func _custom_state(delta: float) -> void:
+	if not _custom_step.is_valid() or not _custom_step.call(delta):
+		end_custom_motion()
+		return
+	if _custom_allows_attack:
+		_try_attack()
+
+
+## Makes the player immune to damage for [param seconds] (no blinking).
+func grant_invulnerability(seconds: float) -> void:
+	_grant_iframes(seconds, false)
+
+
+func shake_camera(amount: float) -> void:
+	_shake_camera(amount)
+
+
+## False while dead or invisible: enemies do not pick this player as a new target.
+func is_targetable() -> bool:
+	return is_alive() and not has_flag(FLAG_INVISIBLE)
+
+
+## True if [param data] is in one of the loadout slots.
+func carries_weapon(data: WeaponData) -> bool:
+	return data != null and _loadout_has(data)
+
+
+## Leaves afterimages for [param seconds] (also used to show a teammate's dash attack).
+func spawn_ghosts_for(seconds: float) -> void:
+	_ghost_burst_left = maxf(_ghost_burst_left, seconds)
+
+
+## Replaces the weapon in hand until end_weapon_override() (Zenith blades). Swapping is
+## blocked meanwhile.
+func begin_weapon_override(data: WeaponData) -> void:
+	if _weapon_override:
+		return
+	_weapon_before_override = weapon.data if weapon != null else null
+	_weapon_override = true
+	equip(data)
+
+
+## Ends the override. Hands back [param prefer] if it is carried (Venza's pistols after
+## Zenith), otherwise the weapon held before.
+func end_weapon_override(prefer: WeaponData = null) -> void:
+	if not _weapon_override:
+		return
+	_weapon_override = false
+	var back := prefer if prefer != null and _loadout_has(prefer) else _weapon_before_override
+	if back == null or not _loadout_has(back):
+		back = loadout[0] if not loadout.is_empty() else null
+	equip(back)
+
+
+func has_weapon_override() -> bool:
+	return _weapon_override
+
+
+## Effects driven by status flags, on every peer: fading while invisible, afterimages
+## while boosted or dash-attacking.
+func _update_effects(delta: float) -> void:
+	var invisible_alpha := 0.35 if is_local() else 0.12
+	modulate.a = invisible_alpha if has_flag(FLAG_INVISIBLE) else 1.0
+	_ghost_burst_left = maxf(0.0, _ghost_burst_left - delta)
+	if (has_flag(FLAG_BOOSTED) or _ghost_burst_left > 0.0) and state != State.DEAD:
+		_ghost_timer -= delta
+		if _ghost_timer <= 0.0:
+			_ghost_timer = BOOST_GHOST_INTERVAL
+			_spawn_ghost()
+
+
+## Turns a status bit (FLAG_*) on or off. Owner only; other peers receive it.
+func set_flag(flag: int, on: bool) -> void:
+	net_flags = (net_flags | flag) if on else (net_flags & ~flag)
+
+
+func has_flag(flag: int) -> bool:
+	return net_flags & flag != 0
+
+
+## Sets a named speed multiplier (1 = normal). Setting the same name again replaces it,
+## so one effect can never stack with itself.
+func set_speed_multiplier(key: StringName, value: float) -> void:
+	_speed_multipliers[key] = value
+
+
+func clear_speed_multiplier(key: StringName) -> void:
+	_speed_multipliers.erase(key)
+
+
+## All active speed multipliers combined.
+func get_speed_multiplier() -> float:
+	var total := 1.0
+	for value: float in _speed_multipliers.values():
+		total *= value
+	return total
 
 
 func _tick_timers(delta: float) -> void:
@@ -344,26 +567,51 @@ func _move_state(delta: float) -> void:
 	if input.take_interact():
 		interact_requested.emit(self)
 	# Swapping waits for the current swing to finish rather than cutting it off.
-	if weapon != null and not weapon.is_busy() and input.take_swap():
+	if weapon != null and not weapon.is_busy() and not _weapon_override and input.take_swap():
 		swap_weapon()
-	var speed := max_speed
+	if passive == null or not passive.handle_movement(delta):
+		_run(delta)
+	_try_attack()
+
+
+func _try_attack() -> void:
+	if weapon == null or not input.wants_attack():
+		return
+	if not weapon.try_attack(input.aim_direction):
+		return
+	input.clear_attack()
+	abilities.notify_attacked()
+	if weapon.has_method(&"is_rapid_fire") and weapon.call(&"is_rapid_fire"):
+		_net_attack_fast.rpc(input.aim_direction)
+	else:
+		_net_attack.rpc(input.aim_direction)
+
+
+## Normal running. Above running speed (after a skate, a launch or a boost) the extra
+## speed bleeds off slowly instead of stopping dead, so momentum carries.
+func _run(delta: float) -> void:
+	var base_speed := max_speed * get_speed_multiplier()
+	var speed := base_speed
 	if weapon != null:
 		speed *= weapon.get_move_speed_multiplier()
 	# Accelerate toward the wanted velocity, or brake if no direction is held.
 	var rate := acceleration if input.move != Vector2.ZERO else friction
+	if velocity.length() > base_speed * 1.02:
+		rate = minf(rate, momentum_friction)
 	velocity = velocity.move_toward(input.move * speed, rate * delta)
-	if weapon != null and input.wants_attack():
-		if weapon.try_attack(input.aim_direction):
-			input.clear_attack()
-			_net_attack.rpc(input.aim_direction)
 
 
 func _start_dash() -> void:
 	state = State.DASH
 	# Dash where the player is steering; if standing still, dash where they aim.
 	_dash_direction = input.move.normalized() if input.move.length() > 0.1 else input.aim_direction
+	if passive != null:
+		var kick := passive.dash_direction_override()
+		if kick != Vector2.ZERO:
+			_dash_direction = kick
 	_dash_time_left = dash_duration
 	_ghost_timer = 0.0
+	_dash_entry_speed = velocity.length()
 	velocity = _dash_direction * dash_speed
 	if weapon != null:
 		weapon.cancel()
@@ -381,8 +629,9 @@ func _dash_state(delta: float) -> void:
 	if _dash_time_left <= 0.0:
 		state = State.MOVE
 		_dash_cooldown_left = dash_cooldown
-		# Leave the dash at running speed so it flows straight back into movement.
-		velocity = _dash_direction * max_speed
+		# Leave the dash at running speed (or the speed it started at, if faster) so it
+		# flows straight back into movement and keeps skating momentum.
+		velocity = _dash_direction * maxf(max_speed, _dash_entry_speed)
 
 
 func _grant_iframes(seconds: float, blink: bool) -> void:
@@ -401,6 +650,13 @@ func _spawn_ghost() -> void:
 	var tween := ghost.create_tween()
 	tween.tween_property(ghost, "modulate:a", 0.0, GHOST_FADE_TIME)
 	tween.tween_callback(ghost.queue_free)
+
+
+## Rapid-fire version of _net_attack: many shots a second, sent unreliably because a lost
+## cosmetic bullet on a teammate's screen does not matter.
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _net_attack_fast(aim: Vector2) -> void:
+	_net_attack(aim)
 
 
 ## Plays this player's swing on the other peers' copies.
@@ -430,6 +686,7 @@ func _puppet_process(delta: float) -> void:
 			_spawn_ghost()
 	if weapon != null:
 		weapon.tick(delta)
+	_update_effects(delta)
 
 
 func _on_remote_state_changed(was: State, now: State) -> void:
@@ -473,6 +730,11 @@ func _on_died() -> void:
 	velocity = Vector2.ZERO
 	if weapon != null:
 		weapon.cancel()
+	if passive != null:
+		passive.interrupt()
+	_custom_step = Callable()
+	abilities.cancel_all()
+	grapple.cancel()
 	hurtbox.invulnerable = true
 	_iframes = 0.0
 	_blinking = false

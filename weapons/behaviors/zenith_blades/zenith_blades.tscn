@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://weapons/behaviors/zenith_blades/zenith_blades.gd" id="1_swing"]
+[ext_resource type="Script" path="res://core/components/hitbox.gd" id="2_hitbox"]
+
+[node name="ZenithBlades" type="Node2D"]
+script = ExtResource("1_swing")
+
+[node name="Hitbox" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 0
+monitorable = false
+script = ExtResource("2_hitbox")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Hitbox"]

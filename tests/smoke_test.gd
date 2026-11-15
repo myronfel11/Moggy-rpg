@@ -281,13 +281,19 @@ func _test_crafting(player: Player, station: CraftingStation) -> void:
 	_check(station.is_in_range(player), "the station notices a player standing next to it")
 	player.input.press_interact()
 	await _frames(3)
-	_check(not player.owns_weapon(recipe.result), "cannot craft without the materials")
+	var panels := get_tree().get_nodes_in_group(&"open_panels")
+	_check(panels.size() == 1 and panels[0] is CraftingPanel, "pressing E at the station opens the crafting menu")
+	for panel: MenuPanel in panels:
+		panel.close()
+	await _frames(2)
+	_check(not station.try_craft(player, recipe), "cannot craft without the materials")
+	_check(not player.owns_weapon(recipe.result), "nothing is granted without the materials")
 
 	var before := {}
 	for cost in recipe.costs:
 		player.inventory.add(cost.item, cost.amount)
 		before[cost.item.id] = player.inventory.get_count(cost.item)
-	player.input.press_interact()
+	_check(station.try_craft(player, recipe), "crafting with enough materials succeeds")
 	await _frames(3)
 	_check(player.owns_weapon(recipe.result), "crafting with enough materials unlocks the weapon")
 	_check(player.weapon.data == recipe.result, "the crafted weapon is equipped straight away")
@@ -295,7 +301,7 @@ func _test_crafting(player: Player, station: CraftingStation) -> void:
 	for cost in recipe.costs:
 		exact = exact and player.inventory.get_count(cost.item) == before[cost.item.id] - cost.amount
 	_check(exact, "crafting spends exactly the recipe cost")
-	_check(station.get_next_recipe(player) == null, "a crafted recipe is no longer offered")
+	_check(station.get_next_recipe(player) != recipe and not station.can_craft(player, recipe), "a crafted recipe cannot be crafted again")
 
 	player.input.press_swap()
 	await _frames(3)

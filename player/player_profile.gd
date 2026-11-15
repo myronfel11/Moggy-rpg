@@ -26,6 +26,8 @@ var weapons := PackedStringArray([DEFAULT_WEAPON])
 var loadout := PackedStringArray([DEFAULT_WEAPON])
 var character := DEFAULT_CHARACTER
 var completed_missions := PackedStringArray()
+## Crafted characters (file paths). Starting characters are always available.
+var characters := PackedStringArray()
 
 var _save_pending := false
 
@@ -45,6 +47,7 @@ func reset() -> void:
 	loadout = PackedStringArray([DEFAULT_WEAPON])
 	character = DEFAULT_CHARACTER
 	completed_missions = PackedStringArray()
+	characters = PackedStringArray()
 
 
 ## Loads the save file if there is one. A damaged file is renamed to *.bad and a fresh
@@ -81,6 +84,7 @@ func to_dictionary() -> Dictionary:
 		"loadout": Array(loadout),
 		"character": character,
 		"completed_missions": Array(completed_missions),
+		"characters": Array(characters),
 	}
 
 
@@ -98,6 +102,7 @@ func from_dictionary(data: Dictionary) -> void:
 	if ResourceLoader.exists(saved_character):
 		character = saved_character
 	completed_missions = _existing_paths(data.get("completed_missions", []), PackedStringArray())
+	characters = _existing_paths(data.get("characters", []), PackedStringArray())
 
 
 ## Puts this profile onto a freshly spawned player.
@@ -117,9 +122,17 @@ func apply_to(player: Player) -> void:
 		if weapon != null:
 			chosen.append(weapon)
 	player.set_weapons(owned, chosen)
+	var crafted: Array[CharacterData] = []
+	for path in characters:
+		var unlocked := load(path) as CharacterData
+		if unlocked != null:
+			crafted.append(unlocked)
+	player.set_unlocked_characters(crafted)
 	var look := load(character) as CharacterData
-	if look != null:
+	if look != null and player.owns_character(look):
 		player.set_character(look)
+	else:
+		player.set_character(load(DEFAULT_CHARACTER) as CharacterData)
 
 
 ## Keeps the profile in step with the player from now on.
@@ -128,7 +141,7 @@ func watch(player: Player) -> void:
 		capture(player)
 		_save_soon()
 	)
-	for change_signal: Signal in [player.loadout_changed, player.weapon_unlocked, player.character_changed]:
+	for change_signal: Signal in [player.loadout_changed, player.weapon_unlocked, player.character_changed, player.character_unlocked]:
 		change_signal.connect(func(_arg: Variant = null) -> void:
 			capture(player)
 			save_to_disk()
@@ -146,6 +159,9 @@ func capture(player: Player) -> void:
 		loadout.append(weapon.resource_path)
 	if player.character != null:
 		character = player.character.resource_path
+	characters = PackedStringArray()
+	for unlocked in player.unlocked_characters:
+		characters.append(unlocked.resource_path)
 
 
 func mark_mission_completed(mission_path: String) -> void:

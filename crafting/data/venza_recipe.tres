@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="Recipe" format=3]
+
+[ext_resource type="Script" path="res://crafting/recipe.gd" id="1_recipe"]
+[ext_resource type="Script" path="res://items/item_amount.gd" id="2_amount"]
+[ext_resource type="Resource" path="res://characters/data/venza.tres" id="3_venza"]
+[ext_resource type="Resource" path="res://items/data/venza_crown.tres" id="4_crown"]
+[ext_resource type="Resource" path="res://items/data/venza_suit.tres" id="5_suit"]
+[ext_resource type="Resource" path="res://items/data/venza_weapon_parts.tres" id="6_parts"]
+
+[sub_resource type="Resource" id="cost_crown"]
+script = ExtResource("2_amount")
+item = ExtResource("4_crown")
+amount = 1
+
+[sub_resource type="Resource" id="cost_suit"]
+script = ExtResource("2_amount")
+item = ExtResource("5_suit")
+amount = 1
+
+[sub_resource type="Resource" id="cost_parts"]
+script = ExtResource("2_amount")
+item = ExtResource("6_parts")
+amount = 1
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"venza"
+result_character = ExtResource("3_venza")
+costs = Array[ExtResource("2_amount")]([SubResource("cost_crown"), SubResource("cost_suit"), SubResource("cost_parts")])

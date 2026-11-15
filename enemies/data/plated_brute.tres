@@ -39,5 +39,6 @@ move_speed = 45.0
 stagger_time = 0.0
 knockback_resistance = 0.75
 armor = 9.0
+zenith_value = 25.0
 drops = Array[ExtResource("3_drop")]([SubResource("drop_scrap"), SubResource("drop_core")])
 color = Color(0.6, 0.66, 0.85, 1)

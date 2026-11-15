@@ -25,6 +25,9 @@ extends Resource
 @export var hit_stop := 0.05
 ## Screen shake per hit (0 to 1).
 @export var screen_shake := 0.4
+## Whether hits interrupt enemies. Off for rapid-fire weapons, so a stream of small hits
+## cannot keep an enemy stunned forever.
+@export var staggers := true
 
 @export_group("Timing (seconds)")
 ## Delay between pressing attack and the attack becoming dangerous. 0 for instant.

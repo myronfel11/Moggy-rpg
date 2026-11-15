@@ -34,3 +34,6 @@ jobs:
 
       - name: Hub test
         run: ./godot --headless --fixed-fps 60 --path . res://tests/hub_test.tscn
+
+      - name: Venza test
+        run: ./godot --headless --fixed-fps 60 --path . res://tests/venza_test.tscn

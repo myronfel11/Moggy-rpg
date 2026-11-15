@@ -15,6 +15,7 @@ Everything runs from the `tools` folder (double-click, or run from a terminal):
 | `tools\play.cmd` | Runs the game. |
 | `tools\editor.cmd` | Opens the project in the Godot editor. Press F5 there to play. |
 | `tools\test.cmd` | Runs all automated tests without opening a window. |
+| `tools\play_venza.cmd` | Playtest shortcut: solo as Venza, on a separate "dev" save. |
 | `tools\host.cmd` | Starts a co-op game as host. |
 | `tools\join.cmd [address]` | Joins a co-op game (this PC if no address is given). |
 
@@ -41,6 +42,10 @@ Working together on GitHub and playing online from different homes: [docs/CONTRI
 | Aim | Mouse |
 | Attack | Left mouse button (hold to keep swinging) |
 | Dash | Space |
+| Skate (Venza only) | Hold Shift while moving |
+| Abilities (Venza: Boost, Fade, Rush) | 1, 2, 3 |
+| Zenith ultimate (when the bar is full) | 4 |
+| Grapple (everyone) | Hold right mouse button; let go to launch |
 | Use a station (Navigation, Fabricator, Armory) | E (while standing next to it) |
 | Swap weapon | Q |
 | Back to menu / quit from menu | Esc |

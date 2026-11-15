@@ -27,6 +27,8 @@ func _on_setup() -> void:
 	_swing = data as MeleeSwingData
 	assert(_swing != null, "MeleeSwing needs a MeleeSwingData resource.")
 	_hitbox.collision_mask = target_mask
+	_hitbox.staggers = data.staggers
+	_hitbox.weapon_id = data.id
 	_shape.polygon = build_sector(_swing.reach, _swing.arc_degrees)
 	_hitbox.landed.connect(_on_hitbox_landed)
 	queue_redraw()

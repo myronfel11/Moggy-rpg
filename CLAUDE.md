@@ -54,6 +54,11 @@ adds a byte-order mark to the file.
 When a fix is for a bug that only shows up sometimes, confirm it by switching the fix off
 and seeing the failure come back, and say so plainly if a test cannot reproduce it.
 
+A test scene whose script fails to parse never quits (Godot just sits there), so
+`tools\test.cmd` syntax-checks every test entry script with `--check-only` first; add new
+test scripts to that list. In GDScript you cannot assign properties on a `const` preload;
+copy it to a `var` first.
+
 `tools\test.cmd` runs import, unit tests, smoke test and the co-op test (`tools\test_net.cmd`:
 a headless host and client on port 24600, logs in `%TEMP%\arpg_net_test`) in one go.
 The game starts at `main/main.tscn` (menu); tests instantiate the arena directly.
@@ -96,6 +101,10 @@ menus extend `MenuPanel` and block the player's input while open.
     `NetworkSession` with `Engine.get_singleton("Steam")` and `call()`, and only after a
     Steam button is pressed. Never start Steam in tests or at game start.
     `tests/steam_check.tscn` is a manual one-PC check that needs Steam running.
+  - Character kits are data (`CharacterData`: passive, abilities, zenith). New abilities
+    extend `AbilityBehavior`; anything that moves the player uses
+    `Player.begin_custom_motion()`; visible state for teammates goes in `Player.net_flags`
+    (FLAG_*), one-off effects through `AbilityBehavior.show_remote()`.
   - Loot is rolled once by the host (`Enemy.roll_drops`) and sent with the death RPC;
     every peer spawns its own copy of the same pieces. Never roll randomness on clients.
   - Player intent goes through `PlayerInput`; gameplay code never reads `Input` directly.

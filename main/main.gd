@@ -52,6 +52,8 @@ func _ready() -> void:
 		elif argument == "--no-save":
 			profile.persistent = false
 	profile.load_from_disk()
+	if "--dev-unlock-venza" in OS.get_cmdline_user_args():
+		_dev_unlock_venza()
 	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--port="):
 			_port = int(argument.trim_prefix("--port="))
@@ -67,6 +69,21 @@ func _ready() -> void:
 			start_host()
 		"join":
 			start_join(join_address)
+
+
+## Developer shortcut for playtesting (tools\play_venza.cmd): unlocks Venza and her
+## pistols in the current profile without farming the parts. Use with a separate
+## --profile so the real save is not touched.
+func _dev_unlock_venza() -> void:
+	var venza := "res://characters/data/venza.tres"
+	var pistols := "res://weapons/data/twin_sparrows.tres"
+	if not profile.characters.has(venza):
+		profile.characters.append(venza)
+	if not profile.weapons.has(pistols):
+		profile.weapons.append(pistols)
+	profile.loadout = PackedStringArray([pistols, PlayerProfile.DEFAULT_WEAPON])
+	profile.character = venza
+	print("Developer unlock: Venza and the Twin Sparrows")
 
 
 ## The level currently loaded (hub or mission), or null while on the menu.

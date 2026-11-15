@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CharacterData" format=3]
+
+[ext_resource type="Script" path="res://characters/character_data.gd" id="1_character"]
+[ext_resource type="Resource" path="res://weapons/data/twin_sparrows.tres" id="2_pistols"]
+[ext_resource type="PackedScene" path="res://characters/passives/skating.tscn" id="3_skating"]
+[ext_resource type="Script" path="res://abilities/ability_data.gd" id="4_ability"]
+[ext_resource type="Resource" path="res://abilities/data/venza_speed_boost.tres" id="5_boost"]
+[ext_resource type="Resource" path="res://abilities/data/venza_invisibility.tres" id="6_fade"]
+[ext_resource type="Resource" path="res://abilities/data/venza_dash_attack.tres" id="7_rush"]
+[ext_resource type="Resource" path="res://abilities/data/venza_zenith.tres" id="8_zenith"]
+
+[resource]
+script = ExtResource("1_character")
+id = &"venza"
+display_name = "Venza"
+color = Color(0.95, 0.3, 0.75, 1)
+unlocked_by_default = false
+crown_color = Color(1, 0.8, 0.3, 1)
+max_health = 90.0
+signature_weapon = ExtResource("2_pistols")
+passive_scene = ExtResource("3_skating")
+abilities = Array[ExtResource("4_ability")]([ExtResource("5_boost"), ExtResource("6_fade"), ExtResource("7_rush")])
+zenith = ExtResource("8_zenith")

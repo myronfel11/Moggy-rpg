@@ -85,6 +85,7 @@ func _run_host(port: int) -> void:
 		_fail("the hound never died (health %.0f)" % hound.health.current)
 		return
 	var host_loot := hound.last_loot
+	_check(hound.killer_peer == remote_player.peer_id and hound.killer_weapon == &"pulse_blade", "the host credits the kill to the client and its weapon (for Zenith charge)")
 	_check(
 		remote_player.global_position.distance_to(start_position) > 10.0,
 		"the client's player moved on the host's screen"

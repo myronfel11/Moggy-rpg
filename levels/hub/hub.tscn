@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://levels/hub/armory_station.tscn" id="6_armory"]
 [ext_resource type="Script" path="res://core/game_camera.gd" id="7_camera"]
 [ext_resource type="PackedScene" path="res://ui/hud.tscn" id="8_hud"]
+[ext_resource type="PackedScene" path="res://levels/common/grapple_anchor.tscn" id="9_anchor"]
 
 [node name="Hub" type="Node2D"]
 script = ExtResource("1_hub")
@@ -55,6 +56,9 @@ size = Vector2(16, 270)
 position = Vector2(472, 135)
 script = ExtResource("3_wall")
 size = Vector2(16, 270)
+
+[node name="GrappleAnchor" parent="Walls" instance=ExtResource("9_anchor")]
+position = Vector2(240, 226)
 
 [node name="NavigationConsole" parent="." instance=ExtResource("4_console")]
 position = Vector2(240, 56)
