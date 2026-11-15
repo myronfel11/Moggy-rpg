@@ -7,6 +7,8 @@ extends Area2D
 ## which side it is able to damage.
 
 signal hit_received(hit: HitInfo)
+## A hit arrived while invulnerable (for example against a boss shield). Used for feedback.
+signal hit_blocked(hit: HitInfo)
 
 ## However much armour there is, a hit that connects always removes at least this much.
 const MIN_DAMAGE := 1.0
@@ -30,6 +32,7 @@ var armor := 0.0
 ## Applies a hit. Returns true if it connected, false if it was ignored.
 func receive_hit(hit: HitInfo) -> bool:
 	if invulnerable:
+		hit_blocked.emit(hit)
 		return false
 	if health != null and health.is_dead():
 		return false

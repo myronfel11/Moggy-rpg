@@ -28,6 +28,8 @@ const DETOUR_MEMORY := 1.2
 const BLOCKED_SPEED_RATIO := 0.35
 
 var data: EnemyData
+## Above 0: replaces data.max_health for this one enemy (set via spawn props).
+var max_health_override := 0.0
 ## Where the host says this enemy is. Co-op clients glide toward it.
 var net_position := Vector2.ZERO
 ## Item file paths of the loot this enemy dropped when it died (empty while alive).
@@ -55,13 +57,14 @@ var _detour_direction := Vector2.ZERO
 func _ready() -> void:
 	assert(data != null, "Assign Enemy.data before adding the enemy to the scene.")
 	add_to_group(&"enemies")
+	var top := get_max_health()
 	if is_multiplayer_authority():
-		health.setup(data.max_health)
+		health.setup(top)
 	else:
 		# Co-op client: keep the health the host synced (a late joiner may see a hurt enemy).
 		var synced := health.current
-		health.max_health = data.max_health
-		health.current = synced if synced > 0.0 and synced < data.max_health else data.max_health
+		health.max_health = top
+		health.current = synced if synced > 0.0 and synced < top else top
 	health.died.connect(_on_died)
 	hurtbox.armor = data.armor
 	hurtbox.hit_received.connect(_on_hit_received)
@@ -76,6 +79,13 @@ func _ready() -> void:
 
 func is_dead() -> bool:
 	return _dead
+
+
+## Maximum health: the data file's value unless this spawn overrides it (a boss scaled
+## for the number of players). Set max_health_override through spawn props so every peer
+## gets the same value.
+func get_max_health() -> float:
+	return max_health_override if max_health_override > 0.0 else data.max_health
 
 
 ## The closest living player, or null. Never assumes there is only one player.

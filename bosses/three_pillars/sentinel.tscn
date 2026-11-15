@@ -1,0 +1,79 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://bosses/three_pillars/sentinel.gd" id="1_script"]
+[ext_resource type="Shader" path="res://core/fx/hit_flash.gdshader" id="2_flash"]
+[ext_resource type="Script" path="res://core/fx/flash_visual.gd" id="3_visual"]
+[ext_resource type="Script" path="res://core/components/health_component.gd" id="4_health"]
+[ext_resource type="Script" path="res://core/components/hurtbox.gd" id="5_hurtbox"]
+[ext_resource type="Script" path="res://ui/mini_health_bar.gd" id="6_bar"]
+
+[sub_resource type="CircleShape2D" id="shape_body"]
+radius = 10
+
+[sub_resource type="ShaderMaterial" id="material_flash"]
+resource_local_to_scene = true
+shader = ExtResource("2_flash")
+shader_parameter/flash_amount = 0.0
+shader_parameter/flash_color = Color(1, 1, 1, 1)
+
+[sub_resource type="CircleShape2D" id="shape_hurtbox"]
+radius = 13
+
+[sub_resource type="SceneReplicationConfig" id="sync_config"]
+properties/0/path = NodePath(".:net_position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("HealthComponent:current")
+properties/1/spawn = true
+properties/1/replication_mode = 2
+properties/2/path = NodePath(".:shielded")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+properties/3/path = NodePath(".:slot")
+properties/3/spawn = true
+properties/3/replication_mode = 0
+
+[node name="Sentinel" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 0
+motion_mode = 1
+script = ExtResource("1_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape_body")
+
+[node name="Visual" type="Node2D" parent="."]
+material = SubResource("material_flash")
+script = ExtResource("3_visual")
+
+[node name="Body" type="Polygon2D" parent="Visual"]
+use_parent_material = true
+polygon = PackedVector2Array(0, -11, 9.5, -5.5, 9.5, 5.5, 0, 11, -9.5, 5.5, -9.5, -5.5)
+
+[node name="Core" type="Polygon2D" parent="Visual"]
+use_parent_material = true
+color = Color(0.08, 0.06, 0.14, 1)
+polygon = PackedVector2Array(0, -4, 4, 0, 0, 4, -4, 0)
+
+[node name="HealthBar" type="Node2D" parent="." node_paths=PackedStringArray("health")]
+position = Vector2(0, -22)
+script = ExtResource("6_bar")
+health = NodePath("../HealthComponent")
+width = 20.0
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("4_health")
+
+[node name="Hurtbox" type="Area2D" parent="." node_paths=PackedStringArray("health")]
+collision_layer = 16
+collision_mask = 0
+monitoring = false
+script = ExtResource("5_hurtbox")
+health = NodePath("../HealthComponent")
+forward_hits_to_authority = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+shape = SubResource("shape_hurtbox")
+
+[node name="Sync" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("sync_config")

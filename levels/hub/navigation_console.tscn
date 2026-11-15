@@ -7,13 +7,14 @@
 [ext_resource type="Resource" path="res://missions/data/suit.tres" id="5_suit"]
 [ext_resource type="Resource" path="res://missions/data/weapon.tres" id="6_weapon"]
 [ext_resource type="Resource" path="res://missions/data/endless_siege.tres" id="7_siege"]
+[ext_resource type="Resource" path="res://missions/data/three_pillars.tres" id="8_boss"]
 
 [sub_resource type="CircleShape2D" id="shape_range"]
 radius = 34.0
 
 [node name="NavigationConsole" type="Node2D"]
 script = ExtResource("1_console")
-missions = Array[ExtResource("3_mission")]([ExtResource("4_crown"), ExtResource("5_suit"), ExtResource("6_weapon"), ExtResource("7_siege")])
+missions = Array[ExtResource("3_mission")]([ExtResource("4_crown"), ExtResource("5_suit"), ExtResource("6_weapon"), ExtResource("7_siege"), ExtResource("8_boss")])
 
 [node name="Body" type="StaticBody2D" parent="."]
 script = ExtResource("2_wall")

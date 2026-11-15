@@ -25,6 +25,10 @@ const HUB_SCENE := "res://levels/hub/hub.tscn"
 const PLAYER_SPACING := 20.0
 ## Seconds between telling a refused client why and disconnecting it.
 const REJECT_DELAY := 0.5
+## Seconds the "mission complete/failed" message shows before returning to the hub.
+const END_DELAY := 4.0
+## Seconds the mission result stays on screen.
+const RESULT_TIME := 3.6
 
 ## Recipes shown in the HUD goal line and offered by any Fabricator in this level.
 @export var recipe_book: RecipeBook = preload("res://crafting/data/recipe_book.tres")
@@ -33,6 +37,13 @@ const REJECT_DELAY := 0.5
 var local_player: Player
 ## The MissionData file this level was started for, or "" (set by Main before _ready).
 var mission_path := ""
+## The mission loaded from mission_path, or null (hub, tests).
+var mission: MissionData
+
+## Host: the end of the mission was already announced.
+var _end_sent := false
+## Every peer: the end-of-mission message was already handled (no double rewards).
+var _end_received := false
 
 @onready var _entities: Node2D = $Entities
 @onready var _entity_spawner: MultiplayerSpawner = $EntitySpawner
@@ -45,6 +56,8 @@ func _ready() -> void:
 	add_to_group(&"level")
 	_entity_spawner.spawn_function = _spawn_entity
 	_entity_spawner.spawned.connect(_on_entity_spawned)
+	if mission_path != "":
+		mission = load(mission_path) as MissionData
 	_setup_level()
 	if multiplayer.is_server():
 		multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -85,6 +98,14 @@ func get_players() -> Array[Player]:
 
 func get_hud() -> Hud:
 	return _hud
+
+
+## The player controlled by network peer [param peer], or null.
+func get_player_by_peer(peer: int) -> Player:
+	for player in get_players():
+		if player.peer_id == peer:
+			return player
+	return null
 
 
 ## This machine's saved progress. Without Main (tests), a temporary unsaved one.
@@ -165,8 +186,93 @@ func _spawn_entity(data: Dictionary) -> Node:
 		player.net_position = data.position
 		player.set_multiplayer_authority(peer)
 		return player
+	if data.get("kind", "") == "enemy":
+		var type := load(data.data) as EnemyData
+		var enemy := type.scene.instantiate() as Enemy
+		enemy.data = type
+		enemy.position = data.position
+		enemy.net_position = data.position
+		for property: String in data.get("props", {}):
+			enemy.set(property, data.props[property])
+		return enemy
+	if data.get("kind", "") == "scene":
+		# Any other host-created object (boss projectiles, bombs): a scene plus properties.
+		var node := (load(data.path) as PackedScene).instantiate()
+		node.set(&"position", data.position)
+		for property: String in data.get("props", {}):
+			node.set(property, data.props[property])
+		return node
 	push_error("Unknown spawn data: %s" % data)
 	return Node.new()
+
+
+## Creates an enemy on every peer. Host only. [param props] are set on it before it is
+## added (for example which pillar a boss turret belongs to).
+func spawn_enemy(type: EnemyData, at: Vector2, props := {}) -> Enemy:
+	return _spawn({"kind": "enemy", "data": type.resource_path, "position": at, "props": props}) as Enemy
+
+
+## Creates any scene on every peer. Host only. Its name is kept unique automatically.
+func spawn_scene(path: String, at: Vector2, props := {}) -> Node:
+	return _spawn({"kind": "scene", "path": path, "position": at, "props": props})
+
+
+## Rolls a mission's featured reward once. Returns the item's file path, or "" if the roll
+## missed or the mission has no featured reward.
+static func roll_reward(for_mission: MissionData) -> String:
+	if for_mission == null or for_mission.reward_item == null:
+		return ""
+	if randf() < for_mission.reward_chance:
+		return for_mission.reward_item.resource_path
+	return ""
+
+
+## Text for the end-of-mission message.
+static func describe_result(for_mission: MissionData, success: bool, reward_path: String) -> String:
+	if not success:
+		return "MISSION FAILED"
+	if for_mission == null or for_mission.reward_item == null:
+		return "MISSION COMPLETE"
+	var item_name := for_mission.reward_item.display_name
+	if reward_path != "":
+		return "MISSION COMPLETE\nReward: %s" % item_name
+	return "MISSION COMPLETE\nNo %s this time (%d%% chance)" % [
+		item_name, roundi(for_mission.reward_chance * 100.0),
+	]
+
+
+## Ends the mission for everyone: result message, reward, then back to the hub. Host only;
+## a second call does nothing.
+func finish_mission(success: bool) -> void:
+	if not multiplayer.is_server() or _end_sent:
+		return
+	_end_sent = true
+	# The host rolls once for the whole group: everyone gets the reward or nobody does.
+	var reward_path := roll_reward(mission) if success else ""
+	_announce_end.rpc(success, reward_path)
+	await get_tree().create_timer(END_DELAY, false).timeout
+	if is_inside_tree():
+		change_level_requested.emit(HUB_SCENE, "")
+
+
+## On every peer: show the result, give this machine's player the reward, hand over loot
+## still on the ground, record the clear. Runs at most once per mission.
+@rpc("authority", "call_local", "reliable")
+func _announce_end(success: bool, reward_path: String) -> void:
+	if _end_received:
+		return
+	_end_received = true
+	_hud.show_message(describe_result(mission, success, reward_path), RESULT_TIME)
+	if local_player != null and is_instance_valid(local_player) and reward_path != "":
+		local_player.inventory.add(load(reward_path) as ItemData)
+	if local_player != null and is_instance_valid(local_player):
+		for node in get_tree().get_nodes_in_group(&"pickups"):
+			var pickup := node as Pickup
+			if pickup != null and not pickup.is_queued_for_deletion():
+				local_player.inventory.add(pickup.item, pickup.amount)
+				pickup.queue_free()
+	if success and mission != null:
+		get_profile().mark_mission_completed(mission.resource_path)
 
 
 func _on_entity_spawned(node: Node) -> void:

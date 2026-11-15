@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MissionData" format=3]
+
+[ext_resource type="Script" path="res://missions/mission_data.gd" id="1_mission"]
+[ext_resource type="Resource" path="res://items/data/pillar_core.tres" id="2_reward"]
+
+[resource]
+script = ExtResource("1_mission")
+id = &"three_pillars"
+display_name = "The Three Pillars"
+description = "Lead each sentinel's tracking balls into the pillar of its colour, then slam the sentinels' bombs into the Warden. Its laser kills in one hit."
+level_scene = "res://bosses/three_pillars/boss_arena.tscn"
+length_text = "Boss"
+waves_to_clear = 0
+reward_item = ExtResource("2_reward")
+reward_chance = 1.0

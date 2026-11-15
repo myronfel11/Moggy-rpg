@@ -10,8 +10,12 @@ extends Node
 
 signal changed(current: float, maximum: float)
 signal died
+## Health was brought down to [member minimum] (only when minimum is above 0).
+signal reached_minimum
 
 @export var max_health := 100.0
+## Damage cannot take health below this. 0 normally; a boss health gate raises it.
+var minimum := 0.0
 
 var current := 0.0:
 	set(value):
@@ -41,15 +45,20 @@ func reset() -> void:
 		current = max_health
 
 
-## Applies damage and returns how much was actually dealt.
+## Applies damage and returns how much was actually dealt. Health never drops below
+## [member minimum] (a boss's 50% gate), however big the hit.
 ## Only the peer that owns this character calls this; others receive the synced value.
 func take_damage(amount: float) -> float:
 	if is_dead() or amount <= 0.0:
 		return 0.0
-	var dealt := minf(amount, current)
+	var dealt := minf(amount, current - minimum)
+	if dealt <= 0.0:
+		return 0.0
 	current -= dealt
 	if current <= 0.0:
 		died.emit()
+	elif minimum > 0.0 and current <= minimum:
+		reached_minimum.emit()
 	return dealt
 
 

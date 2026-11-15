@@ -16,6 +16,7 @@ Everything runs from the `tools` folder (double-click, or run from a terminal):
 | `tools\editor.cmd` | Opens the project in the Godot editor. Press F5 there to play. |
 | `tools\test.cmd` | Runs all automated tests without opening a window. |
 | `tools\play_venza.cmd` | Playtest shortcut: solo as Venza, on a separate "dev" save. |
+| `tools\play_boss.cmd` | Playtest shortcut: solo as Venza straight into the boss fight. |
 | `tools\host.cmd` | Starts a co-op game as host. |
 | `tools\join.cmd [address]` | Joins a co-op game (this PC if no address is given). |
 

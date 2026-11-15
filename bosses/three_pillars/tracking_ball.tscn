@@ -1,0 +1,29 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://bosses/three_pillars/tracking_ball.gd" id="1_ball"]
+[ext_resource type="Script" path="res://core/fx/trail.gd" id="2_trail"]
+
+[sub_resource type="SceneReplicationConfig" id="sync_config"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:slot")
+properties/1/spawn = true
+properties/1/replication_mode = 0
+properties/2/path = NodePath(".:direction")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+
+[node name="TrackingBall" type="Node2D"]
+z_index = 5
+script = ExtResource("1_ball")
+
+[node name="Trail" type="Line2D" parent="."]
+width = 3.0
+default_color = Color(1, 1, 1, 0.8)
+script = ExtResource("2_trail")
+lifetime = 0.6
+max_points = 36
+
+[node name="Sync" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("sync_config")

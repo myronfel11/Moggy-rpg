@@ -68,6 +68,7 @@ func _run() -> void:
 	await _test_mission_success()
 	await _test_mission_failure()
 	await _test_venza_crafting()
+	await _test_boss_start()
 	_test_save_file()
 
 
@@ -211,7 +212,7 @@ func _test_mission_success() -> void:
 	var player := _player()
 	var console := hub.get_node(^"NavigationConsole") as NavigationConsole
 	var panel := console.open_panel(player)
-	_check(panel != null and panel.missions.size() == 4, "the console lists four missions")
+	_check(panel != null and panel.missions.size() == 5, "the console lists five missions")
 	var suit_mission := load(SUIT) as MissionData
 	panel.select(suit_mission)
 	_check(panel._details.text.contains("Venza Suit - 40% on completion"), "the menu shows the reward and its chance")
@@ -310,3 +311,20 @@ func _test_save_file() -> void:
 	broken.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE + ".bad"))
+
+
+## Starts the boss mission the way a player does (from the hub), so the boss arena loads
+## exactly as in the real game. A loading-order bug once broke only this path.
+func _test_boss_start() -> void:
+	print("Boss mission")
+	var hub := _main.get_level() as Hub
+	hub.start_mission(load("res://missions/data/three_pillars.tres") as MissionData)
+	var arrived := await _until(func() -> bool: return _main.get_level() is BossArena and _player() != null, 300)
+	_check(arrived, "the boss mission loads the boss arena")
+	if not arrived:
+		return
+	var encounter := (_main.get_level() as BossArena).encounter
+	_check(encounter.data is ThreePillarsData, "the encounter's settings load properly")
+	var started := await _until(func() -> bool: return encounter.state == BossEncounter.State.SHIELDED_MECHANICS, 400)
+	_check(started, "the fight starts on its own after the intro")
+	_check(is_instance_valid(encounter.boss) and encounter.get_pillars().size() == 3, "boss and pillars are in place")
