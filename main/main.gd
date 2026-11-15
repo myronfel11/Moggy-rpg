@@ -16,6 +16,7 @@ var _port := NetworkSession.DEFAULT_PORT
 @onready var _menu: CanvasLayer = $Menu
 @onready var _address: LineEdit = $Menu/Panel/Address
 @onready var _status: Label = $Menu/Panel/Status
+@onready var _steam_games: VBoxContainer = $Menu/Panel/SteamGames
 
 
 func _ready() -> void:
@@ -23,9 +24,14 @@ func _ready() -> void:
 	$Menu/Panel/Solo.pressed.connect(start_solo)
 	$Menu/Panel/Host.pressed.connect(start_host)
 	$Menu/Panel/Join.pressed.connect(func() -> void: start_join(_address.text))
+	$Menu/Panel/SteamHost.pressed.connect(start_steam_host)
+	$Menu/Panel/SteamFind.pressed.connect(find_steam_games)
 	session.connected.connect(func() -> void: _menu.visible = false)
 	session.failed.connect(_back_to_menu)
 	session.ended.connect(_back_to_menu)
+	session.steam_hosted.connect(_load_arena)
+	session.steam_games_found.connect(_show_steam_games)
+	session.steam_join_requested.connect(start_steam_join)
 	multiplayer.peer_connected.connect(func(id: int) -> void: print("Peer connected: ", id))
 	multiplayer.peer_disconnected.connect(func(id: int) -> void: print("Peer left: ", id))
 
@@ -76,6 +82,44 @@ func start_join(address: String) -> void:
 		return
 	print("Joining ", address, ":", _port)
 	_status.text = "Joining %s..." % address
+
+
+func start_steam_host() -> void:
+	_clear_steam_games()
+	var problem := session.host_steam()
+	_status.text = problem if problem != "" else "Opening a Steam game..."
+
+
+func find_steam_games() -> void:
+	_clear_steam_games()
+	var problem := session.find_steam_games()
+	_status.text = problem if problem != "" else "Searching Steam..."
+
+
+func start_steam_join(lobby_id: int) -> void:
+	_clear_steam_games()
+	var problem := session.join_steam(lobby_id)
+	_status.text = problem if problem != "" else "Joining through Steam..."
+
+
+func _show_steam_games(games: Array) -> void:
+	_clear_steam_games()
+	if games.is_empty():
+		_status.text = "No Steam games found. A new game can take a few seconds to show up; try again."
+		return
+	_status.text = "Pick a game to join:"
+	for game: Dictionary in games:
+		var button := Button.new()
+		button.add_theme_font_size_override(&"font_size", 8)
+		button.text = "Join %s (%d/%d)" % [game.host, game.players, NetworkSession.MAX_PLAYERS]
+		var lobby_id: int = game.id
+		button.pressed.connect(func() -> void: start_steam_join(lobby_id))
+		_steam_games.add_child(button)
+
+
+func _clear_steam_games() -> void:
+	for child in _steam_games.get_children():
+		child.queue_free()
 
 
 func _load_arena() -> void:

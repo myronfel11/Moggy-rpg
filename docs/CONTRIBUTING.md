@@ -85,8 +85,23 @@ their device with the other person in the Tailscale admin page. The host runs
 `tools\host.cmd`. The other person runs `tools\play.cmd`, types the host's Tailscale address
 (starts with `100.`, shown in the Tailscale tray menu) and clicks Join.
 
-**Soon: Steam.** Host with Steam and the other person picks the game from a list. Both need
-Steam running and a Steam account.
+**With Steam (recommended).** Both need a Steam account, and Steam running and signed in
+before starting the game. No router setup or addresses needed.
+
+1. The host runs `tools\play.cmd` and clicks **Host with Steam**. The game starts.
+2. The other player runs `tools\play.cmd`, clicks **Find Steam games**, then clicks
+   **Join <host's Steam name>**. If the list is empty, wait a few seconds and search again.
+
+While developing, the game borrows Steam's shared test app (ID 480, "Spacewar"), so Steam
+shows you as playing Spacewar. That is expected. When we pay Steam's $100 fee and get our
+own app ID, we change `steam_appid.txt` and `STEAM_APP_ID` in `net/network_session.gd`.
+
+To check Steam works on one PC (it hosts a game, finds it by searching, and closes it):
+```
+tools\godot\Godot_v4.4.1-stable_win64_console.exe --headless --path . res://tests/steam_check.tscn
+```
+
+**Without Steam: Tailscale** (free, for when Steam is down or for testing).
 
 Both should be on the same commit of `main`. The game refuses to join a host whose version
 number differs (Project Settings > Application > Config > Version, currently in
@@ -95,6 +110,8 @@ values or scenes that are spawned over the network**, so mismatched builds are r
 a clear message instead of misbehaving.
 
 ### Online test checklist
+
+Run it once over Steam and once over Tailscale.
 
 1. Both players see each other move, aim, swing and dash.
 2. Enemies and attack warnings match on both screens; a dodge that worked for you counts.

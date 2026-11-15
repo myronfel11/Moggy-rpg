@@ -84,7 +84,7 @@ func _request_player(version: String) -> void:
 		_rejected.rpc_id(peer, reason)
 		# Let the message arrive before hanging up.
 		await get_tree().create_timer(REJECT_DELAY).timeout
-		if multiplayer.multiplayer_peer is ENetMultiplayerPeer:
+		if multiplayer.has_multiplayer_peer() and peer in multiplayer.get_peers():
 			multiplayer.multiplayer_peer.disconnect_peer(peer)
 		return
 	_spawn_player(peer)
