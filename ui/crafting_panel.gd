@@ -55,10 +55,13 @@ func _refresh() -> void:
 		_rows.add_child(header)
 		var costs := HBoxContainer.new()
 		costs.add_theme_constant_override(&"separation", 8)
+		var owned := recipe.is_owned_by(player)
 		for cost in recipe.costs:
 			var have := player.inventory.get_count(cost.item)
 			var enough := have >= cost.amount
-			var label := make_label("%s %d/%d%s" % [cost.item.display_name, mini(have, cost.amount), cost.amount, "" if enough else " missing"])
+			# Nothing is "missing" for something already crafted.
+			var suffix := "" if enough or owned else " missing"
+			var label := make_label("%s %d/%d%s" % [cost.item.display_name, mini(have, cost.amount), cost.amount, suffix])
 			label.autowrap_mode = TextServer.AUTOWRAP_OFF
 			label.modulate = OWNED_COLOR if enough else MISSING_COLOR
 			if recipe.is_owned_by(player):

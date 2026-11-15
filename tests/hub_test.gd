@@ -144,7 +144,10 @@ func _test_venza_crafting() -> void:
 		player.inventory.add(parts[i])
 		panel._refresh()
 	text = _panel_text(panel)
-	_check(text.contains("Venza Crown 1/1") and not text.contains("missing"), "the menu shows every component as owned")
+	var all_owned := true
+	for part in parts:
+		all_owned = all_owned and text.contains(part.display_name + " 1/1") and not text.contains(part.display_name + " 1/1 missing")
+	_check(all_owned, "the menu shows every component as owned")
 	_check(not panel.get_craft_button(VENZA_RECIPE).disabled, "Craft is enabled with all three parts")
 	player.inventory.add(parts[0])
 	_check(panel.craft(VENZA_RECIPE), "crafting Venza succeeds")
