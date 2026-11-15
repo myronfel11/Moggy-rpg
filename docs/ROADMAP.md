@@ -102,13 +102,14 @@ Goal: friends meet in a safe room, get their loadouts ready, and start missions 
 
 ## Milestone 5: Boss encounter "The Three Pillars" 🟡
 
-- 🟡 A. Boss arena, the Warden, three pillars, three shielded sentinels, encounter state machine,
+- ✅ A. Boss arena, the Warden, three pillars, three shielded sentinels, encounter state machine,
   shared revive pool, boss bar, mission entry (`tools\play_boss.cmd` starts straight in it)
-- 🟡 B. Sniper laser: target, charge, lock, wall-piercing one-hit beam, recovery
-- 🟡 C. Tracking balls led into matching pillars; pillar down drops its sentinel's shield
-- ⬜ **Your playtest of the laser and leading balls**
-- ⬜ D. Bombs: drop, hold E to pick up, carry, hold E to slam, shield in thirds
-- ⬜ E. Damage phases, 50% health gate and reset, final phase, defeat and reward
+- ✅ B. Sniper laser: target, charge, lock, wall-piercing one-hit beam, recovery
+- ✅ C. Tracking balls led into matching pillars; pillar down drops its sentinel's shield
+- ✅ Playtested A-C 2026-11-15: "feels good"
+- 🟡 D. Bombs: drop, hold E to pick up, carry, hold E to slam, shield in thirds
+- 🟡 E. Damage phases, 50% health gate and reset, final phase, defeat and reward
+- ⬜ **Your full solo playtest**
 - ⬜ F. Multiplayer: bomb ownership, death and disconnect, joining mid-fight
 - ⬜ G. Testing, polish, version 0.7.0
 

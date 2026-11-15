@@ -68,6 +68,8 @@ func _run() -> void:
 	await _test_start()
 	await _test_laser()
 	await _test_balls_and_pillars()
+	await _test_bombs()
+	await _test_damage_phases()
 	await _test_failure()
 
 
@@ -263,8 +265,167 @@ func _test_balls_and_pillars() -> void:
 	_check(_encounter.get_slot(1) == BossEncounter.Slot.VULNERABLE, "a ball led past the boss breaks its own pillar")
 
 
+## Waits until [param node] has been freed (by instance id, so nothing touches it after).
+func _gone(node: Node, max_frames: int) -> void:
+	var id := node.get_instance_id()
+	await _until(func() -> bool: return instance_from_id(id) == null, max_frames)
+
+
+## Gives this player the bomb of [param slot] and slams it, through the host's request checks.
+func _deliver(slot: int) -> void:
+	var bomb := _encounter.bombs[slot]
+	_place(bomb.global_position)
+	await _frames(2)
+	_encounter.request_pickup(slot, _player.peer_id)
+	_place(_boss().global_position + Vector2(0.0, 40.0))
+	await _frames(2)
+	_encounter.request_slam(_player.peer_id)
+	await _frames(2)
+
+
+## Breaks a slot's pillar and kills its sentinel, so its bomb drops.
+func _expose_and_kill(slot: int) -> void:
+	if _encounter.get_slot(slot) == BossEncounter.Slot.SHIELDED:
+		_encounter.on_ball_hit_pillar(slot)
+	await _frames(int(Enemy.SPAWN_TIME * 60.0) + 3)
+	var sentinel := _encounter.sentinels[slot]
+	if is_instance_valid(sentinel):
+		sentinel.hurtbox.receive_hit(HitInfo.new(99999.0))
+	await _frames(3)
+
+
+func _test_bombs() -> void:
+	print("Bombs")
+	await _frames(2)
+	var bomb := _encounter.bombs[0]
+	_check(bomb != null and get_tree().get_nodes_in_group(&"bombs").size() == 1, "the defeated sentinel dropped exactly one bomb")
+	_check(bomb != null and bomb.global_position.distance_to(_arena.get_node(^"SentinelPoints/Sentinel0").global_position) < 2.0, "the bomb lies where the sentinel died")
+	_check(bomb.get_node_or_null(^"Hurtbox") == null, "bombs cannot be hit by weapons")
+
+	_place(bomb.global_position + Vector2(8.0, 0.0))
+	await _frames(3)
+	_check(bomb.get_prompt(_player) == "Hold E to Pick Up Bomb", "standing at the bomb shows the pickup prompt")
+	_player.input.interact_held = true
+	await _frames(int(_data.pickup_hold * 60.0 * 0.6))
+	_check(bomb.get_hold_progress(_player) > 0.4, "holding E fills the progress bar")
+	_player.input.interact_held = false
+	await _frames(2)
+	_check(_encounter.get_slot(0) == BossEncounter.Slot.BOMB_DROPPED and bomb.get_hold_progress(_player) == 0.0, "letting go of E cancels the pickup")
+
+	_player.input.interact_held = true
+	await _frames(int(_data.pickup_hold * 60.0 * 0.6))
+	_place(bomb.global_position + Vector2(80.0, 0.0))
+	await _frames(3)
+	_check(bomb.get_hold_progress(_player) == 0.0, "walking away cancels the pickup")
+	_place(bomb.global_position + Vector2(8.0, 0.0))
+	var picked := await _until(func() -> bool: return _encounter.get_slot(0) == BossEncounter.Slot.BOMB_CARRIED, 120)
+	_player.input.interact_held = false
+	_check(picked and _encounter.carriers[0] == _player.peer_id, "holding E long enough picks the bomb up")
+	await _frames(2)
+	_check(is_equal_approx(_player.get_speed_multiplier(), _data.carry_speed), "carrying a bomb slows the carrier")
+	_check(bomb.global_position.distance_to(_player.global_position) < 20.0, "the bomb rides with the carrier")
+
+	# Only one bomb at a time.
+	await _expose_and_kill(1)
+	var second := _encounter.bombs[1]
+	_check(second != null, "the second sentinel drops its bomb")
+	_place(second.global_position)
+	await _frames(2)
+	_check(not second.can_interact(_player) and not _encounter.request_pickup(1, _player.peer_id), "a player cannot carry two bombs")
+	_check(not _encounter.request_pickup(1, 999), "a pickup request from an unknown player is refused")
+
+	# Dying drops the bomb so it can be recovered.
+	var fell_at := _player.global_position
+	_player.hurtbox.invulnerable = false
+	_player.hurtbox.receive_hit(HitInfo.new(100000000.0))
+	await _frames(3)
+	_check(_encounter.get_slot(0) == BossEncounter.Slot.BOMB_DROPPED and _encounter.carriers[0] == 0, "a carrier who dies drops the bomb")
+	_check(bomb.global_position.distance_to(fell_at) < 30.0, "the dropped bomb lies where they fell")
+	await _until(func() -> bool: return _player.is_alive(), 120)
+	_player.health.setup(1000000.0)
+	await _frames(2)
+	_check(is_equal_approx(_player.get_speed_multiplier(), 1.0), "the slow-down ends once the bomb is gone")
+
+	# Slam: too far is refused; at the boss, holding E delivers it.
+	_place(bomb.global_position)
+	await _frames(2)
+	_check(_encounter.request_pickup(0, _player.peer_id), "the dropped bomb can be picked up again")
+	_check(not _encounter.request_slam(_player.peer_id), "slamming from far away is refused")
+	_place(_boss().global_position + Vector2(0.0, 40.0))
+	await _frames(3)
+	var slam := _boss().get_node(^"SlamPoint") as SlamPoint
+	_check(slam.get_prompt(_player) == "Hold E to Slam Bomb", "at the boss the slam prompt appears")
+	_player.input.interact_held = true
+	var slammed := await _until(func() -> bool: return _encounter.get_slot(0) == BossEncounter.Slot.DELIVERED, 120)
+	_player.input.interact_held = false
+	_check(slammed, "holding E at the boss slams the bomb in")
+	_check(is_equal_approx(_encounter.get_shield_ratio(), 2.0 / 3.0), "one bomb removes one third of the shield")
+	await _frames(2)
+	_check(not is_instance_valid(bomb), "the bomb is used up")
+	_check(not _encounter.request_slam(_player.peer_id) and _encounter.get_bombs_delivered() == 1, "the same bomb cannot be delivered twice")
+	_check(not _encounter.request_pickup(0, _player.peer_id), "a delivered bomb cannot be picked up again")
+
+	await _deliver(1)
+	_check(is_equal_approx(_encounter.get_shield_ratio(), 1.0 / 3.0), "the second bomb leaves one third")
+	_check(_encounter.state == BossEncounter.State.SHIELDED_MECHANICS and not _boss().vulnerable, "the boss stays shielded until the third bomb")
+	await _expose_and_kill(2)
+	await _deliver(2)
+	_check(_encounter.state == BossEncounter.State.DAMAGE_PHASE_1, "the third bomb starts the damage phase")
+	_check(_encounter.get_shield_ratio() == 0.0 and _boss().vulnerable, "the shield is gone and the boss is vulnerable")
+
+
+func _test_damage_phases() -> void:
+	print("Damage phases")
+	await _frames(2)
+	var boss := _boss()
+	var top := boss.health.max_health
+	_check(boss.hurtbox.receive_hit(HitInfo.new(100.0)) and is_equal_approx(boss.health.current, top - 100.0), "weapons now damage the boss")
+	boss.hurtbox.receive_hit(HitInfo.new(1000000000.0))
+	_check(is_equal_approx(boss.health.current, top * _data.health_gate), "a huge hit stops exactly at 50%")
+	_check(_encounter.state == BossEncounter.State.HEALTH_GATE_TRANSITION, "reaching 50% triggers the health gate")
+	await _frames(2)
+	_check(not boss.hurtbox.receive_hit(HitInfo.new(100.0)) and is_equal_approx(boss.health.current, top * _data.health_gate), "the boss is invulnerable during the gate")
+	var restarted := await _until(func() -> bool: return _encounter.state == BossEncounter.State.SHIELDED_MECHANICS_2, 120)
+	_check(restarted, "the mechanics start again")
+	await _frames(2)
+	var intact := 0
+	var shielded := 0
+	for i in 3:
+		if _encounter.get_pillars()[i].intact:
+			intact += 1
+		if is_instance_valid(_encounter.sentinels[i]) and _encounter.sentinels[i].shielded:
+			shielded += 1
+	_check(intact == 3 and shielded == 3, "all three pillars and shielded sentinels are back")
+	_check(_encounter.get_shield_ratio() == 1.0 and get_tree().get_nodes_in_group(&"bombs").is_empty(), "the shield is full again and no old bombs remain")
+	_check(is_equal_approx(boss.health.current, top * _data.health_gate), "the boss keeps its 50% health (no full heal)")
+
+	for i in 3:
+		await _expose_and_kill(i)
+		await _deliver(i)
+	_check(_encounter.state == BossEncounter.State.FINAL_DAMAGE_PHASE, "three more bombs start the final damage phase")
+	await _frames(2)
+	boss.hurtbox.receive_hit(HitInfo.new(1000000000.0))
+	await _frames(3)
+	_check(_encounter.state == BossEncounter.State.BOSS_DEFEATED, "there is no second gate: the boss falls")
+	var core := load("res://items/data/pillar_core.tres") as ItemData
+	var finished := await _until(func() -> bool: return _player.inventory.get_count(core) == 1, 240)
+	_check(finished, "defeat ends the mission and gives the Pillar Core reward")
+
+
 func _test_failure() -> void:
 	print("Running out of revives")
+	_arena.queue_free()
+	await _frames(3)
+	_arena = ARENA.instantiate() as BossArena
+	_encounter = _arena.get_node(^"Encounter") as BossEncounter
+	_encounter.data = _data
+	_encounter.auto_start = false
+	add_child(_arena)
+	await _frames(2)
+	_player = _arena.local_player
+	_player.input.use_device = false
+	_encounter.begin()
+	await _frames(int(Enemy.SPAWN_TIME * 60.0) + 3)
 	_encounter._revives.revives_left = 0
 	_encounter.revives_left = 0
 	_player.hurtbox.invulnerable = false
@@ -272,9 +433,3 @@ func _test_failure() -> void:
 	await _frames(3)
 	_check(_encounter.state == BossEncounter.State.ENCOUNTER_FAILED, "everyone down with no revives fails the encounter")
 	_check(_encounter.count_balls(0) + _encounter.count_balls(1) + _encounter.count_balls(2) == 0 and not _boss().laser_enabled, "attacks stop when the encounter fails")
-
-
-## Waits until [param node] has been freed (by instance id, so nothing touches it after).
-func _gone(node: Node, max_frames: int) -> void:
-	var id := node.get_instance_id()
-	await _until(func() -> bool: return instance_from_id(id) == null, max_frames)
