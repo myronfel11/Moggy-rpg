@@ -11,15 +11,21 @@ func _build(box: VBoxContainer) -> void:
 	box.add_child(make_label("ARMORY - character"))
 	var character_row := HBoxContainer.new()
 	var character_group := ButtonGroup.new()
+	var any_locked := false
 	for data in characters:
-		var button := make_button(data.display_name)
+		var unlocked := player.owns_character(data)
+		var button := make_button(data.display_name if unlocked else data.display_name + " (locked)")
 		button.toggle_mode = true
 		button.button_group = character_group
-		button.modulate = data.color
+		button.modulate = data.color if unlocked else Color(0.6, 0.6, 0.6, 0.7)
 		button.button_pressed = player.character == data
+		button.disabled = not unlocked
 		button.pressed.connect(choose_character.bind(data))
 		character_row.add_child(button)
+		any_locked = any_locked or not unlocked
 	box.add_child(character_row)
+	if any_locked:
+		box.add_child(make_label("Locked characters are crafted at the Fabricator.", true))
 	for slot in Player.LOADOUT_SLOTS:
 		box.add_child(make_label("Weapon slot %d%s" % [slot + 1, "" if slot == 0 else " (optional)"]))
 		var row := HBoxContainer.new()

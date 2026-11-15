@@ -54,6 +54,10 @@ func bind(player: Player, book: RecipeBook, director: WaveDirector = null) -> vo
 	player.weapon_changed.connect(func(_data: WeaponData) -> void: _refresh_weapon())
 	player.loadout_changed.connect(_refresh_weapon)
 	player.weapon_unlocked.connect(_on_weapon_unlocked)
+	player.character_unlocked.connect(func(data: CharacterData) -> void:
+		_show_toast("UNLOCKED: %s\nChoose her at the Armory" % data.display_name.to_upper(), 3.0)
+		_refresh_goal()
+	)
 	_wave_label.visible = director != null
 	if director != null:
 		director.wave_started.connect(_on_wave_started)
@@ -113,7 +117,7 @@ func _refresh_goal() -> void:
 		var have := _player.inventory.get_count(cost.item)
 		progress.append("%s %d/%d" % [cost.item.display_name, mini(have, cost.amount), cost.amount])
 		all_ready = all_ready and have >= cost.amount
-	var weapon_name := recipe.result.display_name
+	var weapon_name := recipe.get_result_name()
 	if all_ready:
 		_goal_label.text = "GOAL: %s   READY - craft at the Fabricator" % weapon_name
 		_goal_label.modulate = READY_COLOR

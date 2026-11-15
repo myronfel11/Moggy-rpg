@@ -23,6 +23,8 @@ signal weapon_unlocked(data: WeaponData)
 signal loadout_changed
 ## Emitted when the character (look) changes.
 signal character_changed(data: CharacterData)
+## Emitted when a crafted character is unlocked.
+signal character_unlocked(data: CharacterData)
 
 enum State { MOVE, DASH, DEAD }
 
@@ -98,6 +100,8 @@ var weapons: Array[WeaponData] = []
 var loadout: Array[WeaponData] = []
 ## How the player looks. Chosen in the armory.
 var character: CharacterData
+## Characters this player has crafted (the starting ones are always available).
+var unlocked_characters: Array[CharacterData] = []
 
 var _dash_direction := Vector2.RIGHT
 var _dash_time_left := 0.0
@@ -187,9 +191,39 @@ func set_loadout(chosen: Array[WeaponData]) -> void:
 		equip(loadout[0] if not loadout.is_empty() else null)
 
 
-## Sets how the player looks. Other peers see it through net_character_path.
-func set_character(data: CharacterData) -> void:
+## True if this player may choose [param data]: unlocked from the start, or crafted.
+func owns_character(data: CharacterData) -> bool:
 	if data == null:
+		return false
+	if data.unlocked_by_default:
+		return true
+	for unlocked in unlocked_characters:
+		if unlocked.id == data.id:
+			return true
+	return false
+
+
+## Unlocks a crafted character for good.
+func unlock_character(data: CharacterData) -> void:
+	if data == null or owns_character(data):
+		return
+	unlocked_characters.append(data)
+	character_unlocked.emit(data)
+
+
+## Replaces the crafted characters at once (loading a saved profile).
+func set_unlocked_characters(list: Array[CharacterData]) -> void:
+	unlocked_characters.clear()
+	for data in list:
+		if data != null and not data.unlocked_by_default and not owns_character(data):
+			unlocked_characters.append(data)
+
+
+## Sets how the player looks. Other peers see it through net_character_path.
+## A character this player has not unlocked is refused, unless [param check] is false
+## (used when showing another peer's player, whose unlocks this machine does not know).
+func set_character(data: CharacterData, check := true) -> void:
+	if data == null or (check and not owns_character(data)):
 		return
 	character = data
 	var body := visual.get_node_or_null(^"Body") as Polygon2D
@@ -202,7 +236,7 @@ func set_character(data: CharacterData) -> void:
 
 func _character_from_path(path: String) -> void:
 	if path != "" and (character == null or character.resource_path != path):
-		set_character(load(path) as CharacterData)
+		set_character(load(path) as CharacterData, false)
 
 
 func _loadout_has(data: WeaponData) -> bool:

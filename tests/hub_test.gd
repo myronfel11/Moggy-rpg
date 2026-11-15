@@ -12,6 +12,8 @@ const BREAKER := preload("res://weapons/data/breaker.tres")
 const EMBER := preload("res://characters/data/ember.tres")
 const VOLT := preload("res://characters/data/volt.tres")
 const SCRAP := preload("res://items/data/scrap.tres")
+const VENZA := preload("res://characters/data/venza.tres")
+const VENZA_RECIPE := preload("res://crafting/data/venza_recipe.tres")
 const TEST_SAVE := "user://hub_test_profile.json"
 
 var _checks := 0
@@ -65,6 +67,7 @@ func _run() -> void:
 	await _test_armory()
 	await _test_mission_success()
 	await _test_mission_failure()
+	await _test_venza_crafting()
 	_test_save_file()
 
 
@@ -91,13 +94,81 @@ func _test_craft() -> void:
 	player.global_position = fabricator.global_position + Vector2(0.0, 24.0)
 	await _frames(4)
 	_check(fabricator.is_in_range(player), "the player can stand at the Fabricator")
-	_check(fabricator.get_prompt(player).begins_with("[E]"), "the HUD prompt offers crafting")
+	_check(fabricator.get_prompt(player).contains("Breaker ready to craft"), "the HUD prompt says the Breaker is ready")
 	player.input.press_interact()
 	await _frames(3)
+	var panel := _open_panel() as CraftingPanel
+	_check(panel != null, "pressing E opens the crafting menu")
+	_check(not panel.get_craft_button(recipe).disabled, "the Breaker's Craft button is enabled")
+	_check(panel.get_craft_button(VENZA_RECIPE).disabled, "Venza's Craft button is disabled without her parts")
+	panel.craft(recipe)
+	panel.close()
+	await _frames(2)
 	_check(player.owns_weapon(BREAKER), "crafting in the hub unlocks the Breaker")
 	_check(player.loadout.size() == 2 and player.weapon.data == BREAKER, "it goes into the free slot and is equipped")
 	_check(_main.profile.weapons.has(BREAKER.resource_path), "the profile records the new weapon")
 	_check(_main.profile.materials.get(SCRAP.resource_path, 0) == 2, "the profile records the spent materials")
+
+
+func _open_panel() -> MenuPanel:
+	var panels := get_tree().get_nodes_in_group(&"open_panels")
+	return panels[0] as MenuPanel if not panels.is_empty() else null
+
+
+func _test_venza_crafting() -> void:
+	print("Crafting Venza")
+	var hub := _main.get_level() as Hub
+	var player := _player()
+	var fabricator := hub.get_node(^"CraftingStation") as CraftingStation
+	var armory := hub.get_node(^"ArmoryStation") as ArmoryStation
+	_check(not player.owns_character(VENZA), "Venza starts locked")
+	var armory_panel := armory.open_panel(player)
+	armory_panel.choose_character(VENZA)
+	_check(player.character != VENZA, "a locked character cannot be chosen")
+	armory_panel.close()
+
+	var parts: Array[ItemData] = []
+	for cost in VENZA_RECIPE.costs:
+		parts.append(cost.item)
+	# Start from none of the parts (the earlier mission test may have awarded one).
+	var counts := player.inventory.get_counts()
+	for part in parts:
+		counts.erase(part.resource_path)
+	player.inventory.set_counts(counts)
+	var panel := fabricator.open_panel(player)
+	var text := _panel_text(panel)
+	_check(text.contains("Venza Crown 0/1 missing"), "the menu shows a missing component")
+	for i in parts.size():
+		_check(panel.get_craft_button(VENZA_RECIPE).disabled, "Craft stays disabled with %d of 3 parts" % i)
+		_check(not panel.craft(VENZA_RECIPE), "crafting with %d of 3 parts does nothing" % i)
+		player.inventory.add(parts[i])
+		panel._refresh()
+	text = _panel_text(panel)
+	_check(text.contains("Venza Crown 1/1") and not text.contains("missing"), "the menu shows every component as owned")
+	_check(not panel.get_craft_button(VENZA_RECIPE).disabled, "Craft is enabled with all three parts")
+	player.inventory.add(parts[0])
+	_check(panel.craft(VENZA_RECIPE), "crafting Venza succeeds")
+	_check(player.owns_character(VENZA), "Venza is unlocked")
+	_check(player.inventory.get_count(parts[0]) == 1 and player.inventory.get_count(parts[1]) == 0 and player.inventory.get_count(parts[2]) == 0, "exactly one of each part was used")
+	_check(panel.get_craft_button(VENZA_RECIPE).disabled and panel.get_craft_button(VENZA_RECIPE).text == "Crafted", "the menu shows Venza as crafted")
+	player.inventory.add(parts[1])
+	player.inventory.add(parts[2])
+	_check(not panel.craft(VENZA_RECIPE), "Venza cannot be crafted twice")
+	_check(player.inventory.get_count(parts[1]) == 1, "a refused craft takes nothing")
+	_check(_main.profile.characters.has(VENZA.resource_path), "the unlock is saved in the profile")
+	panel.close()
+	armory_panel = armory.open_panel(player)
+	armory_panel.choose_character(VENZA)
+	_check(player.character == VENZA and _main.profile.character == VENZA.resource_path, "Venza can be chosen at the Armory once crafted")
+	armory_panel.close()
+	await _frames(2)
+
+
+func _panel_text(node: Node) -> String:
+	var parts := PackedStringArray()
+	for child in node.find_children("*", "Label", true, false):
+		parts.append((child as Label).text)
+	return " | ".join(parts)
 
 
 func _test_armory() -> void:

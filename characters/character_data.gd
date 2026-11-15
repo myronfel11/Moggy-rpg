@@ -10,3 +10,5 @@ extends Resource
 @export var display_name := ""
 ## Colour of the placeholder body.
 @export var color := Color(0.25, 0.85, 1.0)
+## False for characters that must be crafted at the Fabricator before they can be chosen.
+@export var unlocked_by_default := true
