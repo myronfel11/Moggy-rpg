@@ -33,6 +33,8 @@ var attack_held := false
 var skate_held := false
 ## True while the grapple button is held down.
 var grapple_held := false
+## True while the interact button (E) is held down (hold-to-use stations).
+var interact_held := false
 
 var _ability_buffers: PackedFloat32Array = [0.0, 0.0, 0.0, 0.0]
 
@@ -50,6 +52,7 @@ func update(delta: float) -> void:
 		attack_held = false
 		skate_held = false
 		grapple_held = false
+		interact_held = false
 		_dash_buffer = 0.0
 		_attack_buffer = 0.0
 		_interact_buffer = 0.0
@@ -65,6 +68,7 @@ func update(delta: float) -> void:
 	if not use_device:
 		return
 	grapple_held = Input.is_action_pressed(&"grapple")
+	interact_held = Input.is_action_pressed(&"interact")
 	for i in ABILITY_ACTIONS.size():
 		if Input.is_action_just_pressed(ABILITY_ACTIONS[i]):
 			press_ability(i)

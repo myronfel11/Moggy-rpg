@@ -145,6 +145,7 @@ func _process(delta: float) -> void:
 	if laser_phase == Laser.FIRE and _seen_phase != Laser.FIRE:
 		_on_fire_seen()
 	_seen_phase = laser_phase
+	_burst = maxf(0.0, _burst - delta)
 	# The eye swells while charging.
 	_pulse += delta * (14.0 if laser_phase in [Laser.CHARGE, Laser.LOCK] else 3.0)
 	var eye := visual.get_node_or_null(^"Eye") as Node2D
@@ -172,7 +173,29 @@ func _on_fire_seen() -> void:
 		player.hurtbox.receive_hit(HitInfo.new(100000000.0, 0.0, laser_dir, 0.0))
 
 
+## Every peer: a bomb was slammed in (a burst at the boss).
+func play_slam_effect() -> void:
+	_burst = 0.5
+	_burst_color = Color(1.0, 0.85, 0.4)
+	visual.flash(0.3, Color(1.0, 0.85, 0.4))
+
+
+## Every peer: the shield shattered (a bigger burst).
+func play_shield_break_effect() -> void:
+	_burst = 0.8
+	_burst_color = Color(0.55, 0.85, 1.0)
+	visual.flash(0.5, Color.WHITE)
+
+
+var _burst := 0.0
+var _burst_color := Color.WHITE
+
+
 func _draw() -> void:
+	if _burst > 0.0:
+		var progress := 1.0 - _burst / 0.8
+		draw_arc(Vector2.ZERO, SHIELD_RADIUS + 70.0 * progress, 0.0, TAU, 40, Color(_burst_color, 1.0 - progress), 4.0)
+		draw_arc(Vector2.ZERO, SHIELD_RADIUS + 40.0 * progress, 0.0, TAU, 40, Color(_burst_color, 0.6 * (1.0 - progress)), 2.0)
 	if _dead or vulnerable:
 		return
 	# The shield: a ring split into three parts, one per bomb still needed.

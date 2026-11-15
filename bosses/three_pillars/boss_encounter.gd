@@ -32,6 +32,12 @@ const SLOTS := 3
 const BOSS_DATA_PATH := "res://bosses/three_pillars/data/pillar_boss.tres"
 const SENTINEL_DATA_PATH := "res://bosses/three_pillars/data/sentinel.tres"
 const DATA_PATH := "res://bosses/three_pillars/data/three_pillars.tres"
+const BOMB_SCENE := "res://bosses/three_pillars/bomb.tscn"
+## Extra distance allowed when the host checks a pickup or slam (players move a little
+## between finishing the hold on their screen and the request arriving).
+const REACH_SLACK := 24.0
+## Seconds between the boss falling and the mission result.
+const DEFEAT_DELAY := 1.5
 ## Which phase may follow which. Anything else is refused.
 const ALLOWED := {
 	State.ENCOUNTER_START: [State.SHIELDED_MECHANICS, State.ENCOUNTER_FAILED],
@@ -59,10 +65,13 @@ var state := State.ENCOUNTER_START
 var slot_states := PackedInt32Array([Slot.SHIELDED, Slot.SHIELDED, Slot.SHIELDED])
 ## Synced: revives the team has left.
 var revives_left := 0
+## Synced: per slot, the network peer carrying its bomb (0 when nobody does).
+var carriers := PackedInt32Array([0, 0, 0])
 
 ## Host only.
 var boss: PillarBoss
 var sentinels: Array[Sentinel] = [null, null, null]
+var bombs: Array[Bomb] = [null, null, null]
 
 var _level: Level
 var _revives: ReviveRules
@@ -115,6 +124,7 @@ func begin() -> void:
 	var center := (_level.get_node(^"BossPoint") as Node2D).global_position
 	boss = _level.spawn_enemy(load(BOSS_DATA_PATH) as EnemyData, center, {"max_health_override": health}) as PillarBoss
 	boss.died.connect(_on_boss_died)
+	boss.health.reached_minimum.connect(_on_boss_reached_gate)
 	_spawn_sentinels()
 	_revives.active = true
 	set_state(State.SHIELDED_MECHANICS)
@@ -215,16 +225,156 @@ func on_ball_hit_pillar(slot: int) -> void:
 	_announce.rpc(&"pillar_down", slot)
 
 
-func _on_sentinel_died(_enemy: Enemy, slot: int) -> void:
+func _on_sentinel_died(enemy: Enemy, slot: int) -> void:
 	sentinels[slot] = null
 	if get_slot(slot) != Slot.VULNERABLE:
 		return
+	# Exactly one bomb per sentinel: the slot can only pass through here once per cycle.
 	_set_slot(slot, Slot.BOMB_DROPPED)
+	bombs[slot] = _level.spawn_scene(BOMB_SCENE, enemy.global_position, {"slot": slot}) as Bomb
 	_announce.rpc(&"sentinel_down", slot)
 
 
+# --- Bombs --------------------------------------------------------------------------------
+
+## The slot whose bomb [param peer] carries, or -1.
+func get_carried_slot(peer: int) -> int:
+	for i in SLOTS:
+		if get_slot(i) == Slot.BOMB_CARRIED and carriers[i] == peer:
+			return i
+	return -1
+
+
+## Any peer: this machine's player finished holding E on a bomb. The host decides.
+func ask_pickup(slot: int, player: Player) -> void:
+	if multiplayer.is_server():
+		request_pickup(slot, player.peer_id)
+	else:
+		_rpc_pickup.rpc_id(1, slot)
+
+
+## Any peer: this machine's player finished holding E at the boss. The host decides.
+func ask_slam(player: Player) -> void:
+	if multiplayer.is_server():
+		request_slam(player.peer_id)
+	else:
+		_rpc_slam.rpc_id(1)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_pickup(slot: int) -> void:
+	request_pickup(slot, multiplayer.get_remote_sender_id())
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_slam() -> void:
+	request_slam(multiplayer.get_remote_sender_id())
+
+
+## Host: gives the bomb in [param slot] to [param peer] if that is allowed right now.
+## Returns true if they got it. The first valid request wins; later ones find the slot
+## no longer BOMB_DROPPED.
+func request_pickup(slot: int, peer: int) -> bool:
+	if not multiplayer.is_server() or slot < 0 or slot >= SLOTS:
+		return false
+	if not is_mechanics_state() or get_slot(slot) != Slot.BOMB_DROPPED or not is_instance_valid(bombs[slot]):
+		return false
+	var player := _level.get_player_by_peer(peer)
+	if player == null or not player.is_alive() or get_carried_slot(peer) >= 0:
+		return false
+	var reach := (bombs[slot].get_node(^"Range/CollisionShape2D").shape as CircleShape2D).radius + REACH_SLACK
+	if player.global_position.distance_to(bombs[slot].global_position) > reach:
+		return false
+	_set_carrier(slot, peer)
+	_set_slot(slot, Slot.BOMB_CARRIED)
+	bombs[slot].carrier_peer = peer
+	_announce.rpc(&"bomb_picked", slot)
+	return true
+
+
+## Host: [param peer] slams their bomb into the boss, if allowed. Returns true if it counted.
+## Each bomb counts once: its slot becomes DELIVERED and can never move back.
+func request_slam(peer: int) -> bool:
+	if not multiplayer.is_server() or not is_mechanics_state():
+		return false
+	var slot := get_carried_slot(peer)
+	var player := _level.get_player_by_peer(peer)
+	if slot < 0 or player == null or not player.is_alive() or not is_instance_valid(boss):
+		return false
+	if player.global_position.distance_to(boss.global_position) > data.slam_range + REACH_SLACK:
+		return false
+	_set_carrier(slot, 0)
+	_set_slot(slot, Slot.DELIVERED)
+	if is_instance_valid(bombs[slot]):
+		bombs[slot].queue_free()
+	bombs[slot] = null
+	_announce.rpc(&"bomb_slammed", slot)
+	if get_bombs_delivered() == SLOTS:
+		set_state(State.DAMAGE_PHASE_1 if state == State.SHIELDED_MECHANICS else State.FINAL_DAMAGE_PHASE)
+	return true
+
+
+func _set_carrier(slot: int, peer: int) -> void:
+	var updated := carriers.duplicate()
+	updated[slot] = peer
+	carriers = updated
+
+
+## Host: a carrier who died, left or disconnected drops the bomb where they were, so the
+## fight can never get stuck with a bomb nobody can reach.
+func _drop_abandoned_bombs() -> void:
+	for i in SLOTS:
+		if get_slot(i) != Slot.BOMB_CARRIED:
+			continue
+		var carrier := _level.get_player_by_peer(carriers[i])
+		if carrier != null and carrier.is_alive():
+			continue
+		_set_carrier(i, 0)
+		_set_slot(i, Slot.BOMB_DROPPED)
+		if is_instance_valid(bombs[i]):
+			bombs[i].carrier_peer = 0
+			bombs[i].position.y += 15.0
+		_announce.rpc(&"bomb_dropped", i)
+
+
+# --- Damage phases --------------------------------------------------------------------------
+
+## Host: the boss's health hit the 50% floor during the first damage phase.
+func _on_boss_reached_gate() -> void:
+	if state != State.DAMAGE_PHASE_1:
+		return
+	set_state(State.HEALTH_GATE_TRANSITION)
+
+
+## Host: puts every pillar, sentinel and slot back to the start of the mechanic.
+func _reset_mechanics() -> void:
+	_clear_balls()
+	for i in SLOTS:
+		if is_instance_valid(bombs[i]):
+			bombs[i].queue_free()
+		bombs[i] = null
+		if is_instance_valid(sentinels[i]):
+			sentinels[i].queue_free()
+		sentinels[i] = null
+	slot_states = PackedInt32Array([Slot.SHIELDED, Slot.SHIELDED, Slot.SHIELDED])
+	carriers = PackedInt32Array([0, 0, 0])
+	_spawn_sentinels()
+
+
+func _after_gate() -> void:
+	await get_tree().create_timer(data.gate_time, false).timeout
+	if not is_inside_tree() or state != State.HEALTH_GATE_TRANSITION:
+		return
+	_reset_mechanics()
+	set_state(State.SHIELDED_MECHANICS_2)
+
+
 func _on_boss_died(_enemy: Enemy) -> void:
-	pass
+	if not multiplayer.is_server() or not set_state(State.BOSS_DEFEATED):
+		return
+	await get_tree().create_timer(DEFEAT_DELAY, false).timeout
+	if is_inside_tree():
+		_level.finish_mission(true)
 
 
 ## Host: everyone is down with no revives left.
@@ -239,11 +389,24 @@ func _on_state_entered(to: State) -> void:
 	match to:
 		State.SHIELDED_MECHANICS:
 			boss.laser_enabled = true
+		State.DAMAGE_PHASE_1:
+			# The health gate: damage cannot take the boss below this until the gate passes.
+			boss.health.minimum = boss.health.max_health * data.health_gate
+			_clear_balls()
+		State.HEALTH_GATE_TRANSITION:
+			_after_gate()
+		State.FINAL_DAMAGE_PHASE:
+			boss.health.minimum = 0.0
+			_clear_balls()
 		State.ENCOUNTER_FAILED, State.BOSS_DEFEATED:
 			_revives.active = false
 			if is_instance_valid(boss):
 				boss.laser_enabled = false
 			_clear_balls()
+			for i in SLOTS:
+				if is_instance_valid(bombs[i]):
+					bombs[i].queue_free()
+				bombs[i] = null
 
 
 ## Host: sentinel shields and boss vulnerability always follow the slot and phase state.
@@ -261,6 +424,9 @@ func _clear_balls() -> void:
 
 
 func _process(_delta: float) -> void:
+	if multiplayer.is_server() and _level != null:
+		_drop_abandoned_bombs()
+		_apply_shields()
 	# Every peer: pillars stand exactly while their slot is SHIELDED.
 	var pillars := get_pillars()
 	for i in SLOTS:
@@ -283,8 +449,38 @@ func _announce(event: StringName, value: int) -> void:
 			get_tree().call_group(&"game_camera", &"add_trauma", 0.5)
 		&"sentinel_down":
 			if hud != null:
-				hud.show_message("SENTINEL DESTROYED")
+				hud.show_message("SENTINEL DESTROYED\nIt dropped a bomb - hold E to pick it up")
+		&"bomb_picked":
+			if hud != null and _level.local_player != null and carriers[value] == _level.local_player.peer_id:
+				hud.show_message("Carry the bomb to the Warden\nand hold E to slam it")
+		&"bomb_dropped":
+			if hud != null:
+				hud.show_message("A BOMB WAS DROPPED")
+		&"bomb_slammed":
+			get_tree().call_group(&"game_camera", &"add_trauma", 0.8)
+			var current_boss := get_tree().get_first_node_in_group(&"pillar_boss") as PillarBoss
+			if current_boss != null:
+				current_boss.play_slam_effect()
+			if hud != null:
+				hud.show_message("SHIELD CRACKED  %d/3" % get_bombs_delivered())
 		&"state":
 			state_entered.emit(value as State)
-			if hud != null and value == State.SHIELDED_MECHANICS:
-				hud.show_message("Lead the tracking balls into\nthe pillars of the same colour", 3.0)
+			if hud == null:
+				return
+			match value:
+				State.SHIELDED_MECHANICS:
+					hud.show_message("Lead the tracking balls into\nthe pillars of the same colour", 3.0)
+				State.DAMAGE_PHASE_1, State.FINAL_DAMAGE_PHASE:
+					get_tree().call_group(&"game_camera", &"add_trauma", 1.0)
+					var shield_boss := get_tree().get_first_node_in_group(&"pillar_boss") as PillarBoss
+					if shield_boss != null:
+						shield_boss.play_shield_break_effect()
+					hud.show_message("SHIELD BROKEN\nATTACK THE WARDEN!", 3.0)
+				State.HEALTH_GATE_TRANSITION:
+					get_tree().call_group(&"game_camera", &"add_trauma", 0.6)
+					hud.show_message("THE WARDEN RESTORES ITS SHIELD\nThe pillars rise again", data.gate_time + 0.5)
+				State.SHIELDED_MECHANICS_2:
+					hud.show_message("Break the pillars once more", 2.5)
+				State.BOSS_DEFEATED:
+					get_tree().call_group(&"game_camera", &"add_trauma", 1.0)
+					hud.show_message("%s DEFEATED" % data.boss_name, 3.0)

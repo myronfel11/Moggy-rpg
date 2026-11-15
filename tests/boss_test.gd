@@ -53,10 +53,14 @@ func _run() -> void:
 	_data.idle_time = 0.4
 	_data.revive_delay = 0.5
 	_data.ball_lifetime = 3.0
+	_data.pickup_hold = 0.5
+	_data.slam_hold = 0.5
+	_data.gate_time = 0.5
 	_arena = ARENA.instantiate() as BossArena
 	_encounter = _arena.get_node(^"Encounter") as BossEncounter
 	_encounter.data = _data
 	_encounter.auto_start = false
+	_arena.mission_path = "res://missions/data/three_pillars.tres"
 	add_child(_arena)
 	await _frames(2)
 	_player = _arena.local_player
