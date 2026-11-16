@@ -36,6 +36,9 @@ extends Resource
 @export var fire_interval := 4.5
 ## Most tracking balls one sentinel can have out at once.
 @export var max_balls_each := 2
+## Matching tracking balls a pillar must take before it falls and its sentinel's shield
+## breaks. Wrong-colour balls never count.
+@export_range(1, 10) var pillar_hits := 3
 
 @export_group("Tracking balls")
 ## Ball speed in pixels per second (players run at 120).

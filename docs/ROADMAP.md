@@ -112,7 +112,8 @@ Goal: friends meet in a safe room, get their loadouts ready, and start missions 
 - ✅ Full solo run playtested 2026-11-15: "feels good"
 - ✅ F. Multiplayer: bomb ownership, death and disconnect, joining mid-fight (two-process test)
 - ✅ G. Testing, version 0.7.0
-- ⬜ A boss run with your friend over the internet
+- ✅ First boss run with your friend over the internet (2026-11-16): joined through Steam
+- 🟡 Tuning after that run: pillars need 3 matching balls; starter Spark Pistol for every player (0.7.1)
 
 ## Phase 4: Combat depth ⬜
 

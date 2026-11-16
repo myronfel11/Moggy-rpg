@@ -247,6 +247,16 @@ func _test_armor() -> void:
 	var hound := load("res://enemies/data/scrap_hound.tres") as ChaserData
 	_check(breaker.damage >= hound.max_health, "the Breaker fells a hound in one hit")
 
+	# The starter gun trades damage for range: weaker than the blade up close.
+	var gun := load("res://weapons/data/spark_pistol.tres") as ProjectileWeaponData
+	_check(gun != null and gun.behavior_scene != null, "spark_pistol.tres loads as ProjectileWeaponData")
+	if gun == null:
+		return
+	var blade_dps := blade.damage / (blade.windup + blade.active_time + blade.recovery)
+	var gun_dps := gun.damage / gun.fire_interval
+	_check(gun_dps < blade_dps, "the Spark Pistol does less damage per second than the blade (%.0f vs %.0f)" % [gun_dps, blade_dps])
+	_check(gun.projectile_range > (blade as MeleeSwingData).reach * 4.0, "the Spark Pistol reaches far beyond the blade")
+
 
 func _test_recipe() -> void:
 	print("Recipe")

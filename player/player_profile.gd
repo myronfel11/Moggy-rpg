@@ -11,6 +11,9 @@ extends Node
 ## changes. Paths that no longer exist are skipped when loading.
 
 const DEFAULT_WEAPON := "res://weapons/data/pulse_blade.tres"
+const STARTER_GUN := "res://weapons/data/spark_pistol.tres"
+## Every profile owns these, new or old. A new profile carries both.
+const STARTER_WEAPONS: PackedStringArray = [DEFAULT_WEAPON, STARTER_GUN]
 const DEFAULT_CHARACTER := "res://characters/data/volt.tres"
 ## Pickups are saved at most this often; crafting and loadout changes save at once.
 const AUTOSAVE_DELAY := 5.0
@@ -22,8 +25,8 @@ var save_path := "user://profile.json"
 
 ## Item file path -> count.
 var materials: Dictionary = {}
-var weapons := PackedStringArray([DEFAULT_WEAPON])
-var loadout := PackedStringArray([DEFAULT_WEAPON])
+var weapons := STARTER_WEAPONS.duplicate()
+var loadout := STARTER_WEAPONS.duplicate()
 var character := DEFAULT_CHARACTER
 var completed_missions := PackedStringArray()
 ## Crafted characters (file paths). Starting characters are always available.
@@ -43,8 +46,8 @@ func _exit_tree() -> void:
 ## Back to a brand-new profile (does not touch the disk).
 func reset() -> void:
 	materials = {}
-	weapons = PackedStringArray([DEFAULT_WEAPON])
-	loadout = PackedStringArray([DEFAULT_WEAPON])
+	weapons = STARTER_WEAPONS.duplicate()
+	loadout = STARTER_WEAPONS.duplicate()
 	character = DEFAULT_CHARACTER
 	completed_missions = PackedStringArray()
 	characters = PackedStringArray()
@@ -98,6 +101,12 @@ func from_dictionary(data: Dictionary) -> void:
 				materials[path] = count
 	weapons = _existing_paths(data.get("weapons", []), weapons)
 	loadout = _existing_paths(data.get("loadout", []), loadout)
+	# Saves from before a starter weapon existed get it too, in a free slot if there is one.
+	for path in STARTER_WEAPONS:
+		if not weapons.has(path):
+			weapons.append(path)
+			if loadout.size() < Player.LOADOUT_SLOTS and not loadout.has(path):
+				loadout.append(path)
 	var saved_character := str(data.get("character", ""))
 	if ResourceLoader.exists(saved_character):
 		character = saved_character

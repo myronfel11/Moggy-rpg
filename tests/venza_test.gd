@@ -86,6 +86,9 @@ func _place(at: Vector2) -> void:
 
 func _test_unlock() -> void:
 	print("Unlocking Venza")
+	# A new player carries two starter weapons; free a slot so the pistols go in hand.
+	var one_slot: Array[WeaponData] = [_player.loadout[0]]
+	_player.set_loadout(one_slot)
 	_player.unlock_character(VENZA)
 	_player.set_character(VENZA)
 	_check(_player.character == VENZA, "Venza can be played once unlocked")

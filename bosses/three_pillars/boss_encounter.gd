@@ -67,6 +67,8 @@ var slot_states := PackedInt32Array([Slot.SHIELDED, Slot.SHIELDED, Slot.SHIELDED
 var revives_left := 0
 ## Synced: per slot, the network peer carrying its bomb (0 when nobody does).
 var carriers := PackedInt32Array([0, 0, 0])
+## Synced: per slot, how many matching balls its pillar has taken this cycle.
+var pillar_damage := PackedInt32Array([0, 0, 0])
 
 ## Host only.
 var boss: PillarBoss
@@ -220,6 +222,14 @@ func get_ball_ignored_bodies() -> Array[RID]:
 func on_ball_hit_pillar(slot: int) -> void:
 	if not multiplayer.is_server() or not is_mechanics_state() or get_slot(slot) != Slot.SHIELDED:
 		return
+	var updated := pillar_damage.duplicate()
+	updated[slot] += 1
+	# Assign a new array: the synchronizer only notices a changed value.
+	pillar_damage = updated
+	if updated[slot] < data.pillar_hits:
+		# Send the count itself: the synced array may reach clients after this message.
+		_announce.rpc(&"pillar_hit", updated[slot])
+		return
 	_set_slot(slot, Slot.VULNERABLE)
 	_apply_shields()
 	_announce.rpc(&"pillar_down", slot)
@@ -358,6 +368,7 @@ func _reset_mechanics() -> void:
 		sentinels[i] = null
 	slot_states = PackedInt32Array([Slot.SHIELDED, Slot.SHIELDED, Slot.SHIELDED])
 	carriers = PackedInt32Array([0, 0, 0])
+	pillar_damage = PackedInt32Array([0, 0, 0])
 	_spawn_sentinels()
 
 
@@ -432,6 +443,7 @@ func _process(_delta: float) -> void:
 	for i in SLOTS:
 		if pillars[i] != null:
 			pillars[i].set_intact(get_slot(i) == Slot.SHIELDED, _seen_slots[i] == Slot.SHIELDED)
+			pillars[i].set_damage(pillar_damage[i], data.pillar_hits)
 	_seen_slots = slot_states.duplicate()
 
 
@@ -443,6 +455,10 @@ func _announce(event: StringName, value: int) -> void:
 		&"intro":
 			if hud != null:
 				hud.show_message("%s AWAKENS" % data.boss_name, data.intro_time)
+		&"pillar_hit":
+			if hud != null:
+				hud.show_message("PILLAR CRACKED  %d/%d" % [value, data.pillar_hits], 1.5)
+			get_tree().call_group(&"game_camera", &"add_trauma", 0.25)
 		&"pillar_down":
 			if hud != null:
 				hud.show_message("PILLAR DOWN\nThe sentinel's shield is broken")

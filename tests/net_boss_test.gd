@@ -178,7 +178,8 @@ func _run_host() -> void:
 
 
 func _expose_and_kill(encounter: BossEncounter, slot: int) -> void:
-	encounter.on_ball_hit_pillar(slot)
+	for i in encounter.data.pillar_hits:
+		encounter.on_ball_hit_pillar(slot)
 	await _frames(int(Enemy.SPAWN_TIME * 60.0) + 5)
 	if is_instance_valid(encounter.sentinels[slot]):
 		encounter.sentinels[slot].hurtbox.receive_hit(HitInfo.new(99999.0))

@@ -8,6 +8,7 @@ const MAIN := preload("res://main/main.tscn")
 const SUIT := "res://missions/data/suit.tres"
 const CROWN := "res://missions/data/crown.tres"
 const BLADE := preload("res://weapons/data/pulse_blade.tres")
+const GUN := preload("res://weapons/data/spark_pistol.tres")
 const BREAKER := preload("res://weapons/data/breaker.tres")
 const EMBER := preload("res://characters/data/ember.tres")
 const VOLT := preload("res://characters/data/volt.tres")
@@ -79,7 +80,7 @@ func _test_arrive_in_hub() -> void:
 	_check(_main.get_level() is Hub, "Play solo starts in the hub")
 	var player := _player()
 	_check(player != null, "this machine's player is in the hub")
-	_check(player.loadout.size() == 1 and player.loadout[0] == BLADE, "a new profile carries the Pulse Blade")
+	_check(player.loadout == [BLADE, GUN], "a new profile carries the Pulse Blade and the Spark Pistol")
 	_check(player.character == VOLT, "a new profile uses the first character")
 	_check(get_tree().get_nodes_in_group(&"enemies").is_empty(), "the hub has no enemies")
 
@@ -106,7 +107,10 @@ func _test_craft() -> void:
 	panel.close()
 	await _frames(2)
 	_check(player.owns_weapon(BREAKER), "crafting in the hub unlocks the Breaker")
-	_check(player.loadout.size() == 2 and player.weapon.data == BREAKER, "it goes into the free slot and is equipped")
+	_check(player.loadout == [BLADE, GUN], "with both slots full, the Breaker waits in the Armory")
+	player.set_loadout([BLADE])
+	player.unlock_weapon(BREAKER)
+	_check(player.loadout.size() == 2 and player.weapon.data == BREAKER, "a weapon goes into a free slot and is equipped")
 	_check(_main.profile.weapons.has(BREAKER.resource_path), "the profile records the new weapon")
 	_check(_main.profile.materials.get(SCRAP.resource_path, 0) == 2, "the profile records the spent materials")
 
@@ -297,8 +301,18 @@ func _test_save_file() -> void:
 	odd.save_path = TEST_SAVE
 	odd.load_from_disk()
 	_check(odd.materials.size() == 1 and odd.materials[SCRAP.resource_path] == 3, "unknown items in a save are skipped")
-	_check(Array(odd.weapons) == [PlayerProfile.DEFAULT_WEAPON] and odd.character == PlayerProfile.DEFAULT_CHARACTER, "unknown weapons and characters fall back to defaults")
+	_check(odd.weapons == PlayerProfile.STARTER_WEAPONS and odd.character == PlayerProfile.DEFAULT_CHARACTER, "unknown weapons and characters fall back to defaults")
 	odd.free()
+
+	# A save from before the Spark Pistol existed: it is granted, in a free slot only.
+	var older := PlayerProfile.new()
+	older.from_dictionary({"weapons": [BLADE.resource_path, BREAKER.resource_path], "loadout": [BREAKER.resource_path]})
+	_check(older.weapons.has(GUN.resource_path) and Array(older.loadout) == [BREAKER.resource_path, GUN.resource_path], "an older save gets the Spark Pistol in its free slot")
+	older.from_dictionary({"weapons": [BLADE.resource_path, BREAKER.resource_path], "loadout": [BREAKER.resource_path, BLADE.resource_path]})
+	_check(older.weapons.has(GUN.resource_path) and Array(older.loadout) == [BREAKER.resource_path, BLADE.resource_path], "a full loadout is left alone; the pistol waits in the Armory")
+	older.from_dictionary({"weapons": [BLADE.resource_path, GUN.resource_path], "loadout": [BLADE.resource_path]})
+	_check(Array(older.loadout) == [BLADE.resource_path], "a player who put the pistol away does not get it forced back")
+	older.free()
 
 	file = FileAccess.open(TEST_SAVE, FileAccess.WRITE)
 	file.store_string("{ this is not json")
@@ -307,7 +321,7 @@ func _test_save_file() -> void:
 	broken.save_path = TEST_SAVE
 	broken.load_from_disk()
 	_check(FileAccess.file_exists(TEST_SAVE + ".bad"), "a damaged save is kept aside as .bad")
-	_check(Array(broken.weapons) == [PlayerProfile.DEFAULT_WEAPON], "a damaged save starts a fresh profile")
+	_check(broken.weapons == PlayerProfile.STARTER_WEAPONS, "a damaged save starts a fresh profile")
 	broken.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE + ".bad"))

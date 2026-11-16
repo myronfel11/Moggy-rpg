@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="ProjectileWeaponData" format=3]
+
+[ext_resource type="Script" path="res://weapons/behaviors/projectile/projectile_weapon_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://weapons/behaviors/projectile/projectile_weapon.tscn" id="2_behavior"]
+
+[resource]
+script = ExtResource("1_data")
+fire_interval = 0.22
+projectile_speed = 460.0
+projectile_range = 170.0
+spread_degrees = 3.0
+muzzle_gap = 0.0
+muzzle_distance = 8.0
+projectile_radius = 2.5
+projectile_color = Color(1, 0.85, 0.35, 1)
+id = &"spark_pistol"
+display_name = "Spark Pistol"
+description = "Starter sidearm. A steady single-shot pistol: weaker than a blade up close, but it lets you fight from a safe distance."
+behavior_scene = ExtResource("2_behavior")
+damage = 7.0
+knockback = 30.0
+hit_stop = 0.0
+screen_shake = 0.08
+windup = 0.0
+active_time = 0.05
+recovery = 0.0
+move_speed_multiplier = 0.9
+lunge_speed = 0.0
+staggers = false

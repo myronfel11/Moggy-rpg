@@ -213,7 +213,18 @@ func _test_balls_and_pillars() -> void:
 	_check(not is_instance_valid(wrong), "a ball of the wrong colour is destroyed on the pillar")
 	_check(_encounter.get_slot(0) == BossEncounter.Slot.SHIELDED and _encounter.get_pillars()[0].intact, "the pillar survives a ball of the wrong colour")
 
-	# The matching ball brings the pillar down and drops only its sentinel's shield.
+	_check(_encounter.pillar_damage[0] == 0, "a ball of the wrong colour does not crack the pillar")
+
+	# Each matching ball cracks the pillar; it stands until the last one.
+	for i in _data.pillar_hits - 1:
+		var crack := _spawn_ball(0, Vector2(400.0, 430.0), Vector2.DOWN)
+		await _gone(crack, 60)
+		await _frames(2)
+	_check(_encounter.pillar_damage[0] == _data.pillar_hits - 1, "each matching ball counts as one hit (%d)" % _encounter.pillar_damage[0])
+	_check(_encounter.get_slot(0) == BossEncounter.Slot.SHIELDED and _encounter.get_pillars()[0].intact and _encounter.sentinels[0].shielded, "the pillar and its shield hold until hit %d" % _data.pillar_hits)
+	_check(_encounter.get_pillars()[0].damage_taken == _data.pillar_hits - 1, "the pillar shows its cracks")
+
+	# The last matching ball brings the pillar down and drops only its sentinel's shield.
 	var right := _spawn_ball(0, Vector2(400.0, 430.0), Vector2.DOWN)
 	await _gone(right, 60)
 	await _frames(2)
@@ -259,6 +270,8 @@ func _test_balls_and_pillars() -> void:
 	_place(pillar.global_position + (pillar.global_position - sentinel_at).normalized() * 34.0)
 	# This flight is long (about 4.5 s); use the real lifetime rather than the test's short one.
 	_data.ball_lifetime = DATA.ball_lifetime
+	for i in _data.pillar_hits - 1:
+		_encounter.on_ball_hit_pillar(1)
 	var led := _encounter.sentinels[1].fire()
 	_check(led != null, "the amber sentinel fires at the player behind the amber pillar")
 	await _until(func() -> bool: return _encounter.get_slot(1) != BossEncounter.Slot.SHIELDED, 60 * 8)
@@ -285,8 +298,9 @@ func _deliver(slot: int) -> void:
 
 ## Breaks a slot's pillar and kills its sentinel, so its bomb drops.
 func _expose_and_kill(slot: int) -> void:
-	if _encounter.get_slot(slot) == BossEncounter.Slot.SHIELDED:
-		_encounter.on_ball_hit_pillar(slot)
+	for i in _data.pillar_hits:
+		if _encounter.get_slot(slot) == BossEncounter.Slot.SHIELDED:
+			_encounter.on_ball_hit_pillar(slot)
 	await _frames(int(Enemy.SPAWN_TIME * 60.0) + 3)
 	var sentinel := _encounter.sentinels[slot]
 	if is_instance_valid(sentinel):
@@ -396,6 +410,7 @@ func _test_damage_phases() -> void:
 		if is_instance_valid(_encounter.sentinels[i]) and _encounter.sentinels[i].shielded:
 			shielded += 1
 	_check(intact == 3 and shielded == 3, "all three pillars and shielded sentinels are back")
+	_check(_encounter.pillar_damage == PackedInt32Array([0, 0, 0]), "the pillars' cracks are repaired")
 	_check(_encounter.get_shield_ratio() == 1.0 and get_tree().get_nodes_in_group(&"bombs").is_empty(), "the shield is full again and no old bombs remain")
 	_check(is_equal_approx(boss.health.current, top * _data.health_gate), "the boss keeps its 50% health (no full heal)")
 

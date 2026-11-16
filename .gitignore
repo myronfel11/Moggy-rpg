@@ -14,3 +14,11 @@ export/
 # OS noise
 Thumbs.db
 .DS_Store
+
+# Builds exported into the project folder (share them as release downloads instead)
+/*.exe
+/*.pck
+/*.rar
+/*.zip
+/libgodotsteam*.dll
+/steam_api64.dll

@@ -97,6 +97,10 @@ tooltip explaining what it does.
 | File | What it controls |
 |------|------------------|
 | `weapons/data/pulse_blade.tres` | Starter blade: damage, swing speed, reach, arc, knockback |
+| `weapons/data/spark_pistol.tres` | Starter gun: damage, shots per second, bullet speed and range |
+| `enemies/data/*.tres` (Drops list) | What each enemy drops: one line per item with chance and amount |
+| `missions/data/*.tres` | Waves, plus each mission's featured reward and its chance |
+| `bosses/three_pillars/data/three_pillars.tres` | Every boss number: laser timings, balls, pillar hits, bombs, revives |
 | `weapons/data/breaker.tres` | Crafted hammer: the same properties, tuned slow and heavy |
 | `enemies/data/scrap_hound.tres` | Basic enemy: health, speed, attack timing, drops |
 | `enemies/data/plated_brute.tres` | Armoured enemy: the same, plus armour |

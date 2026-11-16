@@ -289,6 +289,9 @@ func _test_crafting(player: Player, station: CraftingStation) -> void:
 	_check(not station.try_craft(player, recipe), "cannot craft without the materials")
 	_check(not player.owns_weapon(recipe.result), "nothing is granted without the materials")
 
+	# A new player carries two starter weapons; free a slot so the crafted one goes in hand.
+	var one_slot: Array[WeaponData] = [starter]
+	player.set_loadout(one_slot)
 	var before := {}
 	for cost in recipe.costs:
 		player.inventory.add(cost.item, cost.amount)
