@@ -13,6 +13,8 @@ var _boxes: Array[Dictionary] = []
 var _zenith_fill: ColorRect
 var _zenith_back: ColorRect
 var _zenith_label: Label
+## Above the Zenith bar: how to charge it, when the current setup cannot.
+var _zenith_hint: Label
 var _time := 0.0
 
 
@@ -61,6 +63,13 @@ func rebuild() -> void:
 		_zenith_label = _label("ZENITH")
 		_zenith_label.position = Vector2(x + 6.0, -9.0)
 		add_child(_zenith_label)
+		_zenith_hint = _label("")
+		_zenith_hint.position = Vector2(x + 6.0, -19.0)
+		_zenith_hint.modulate = Color(1.0, 0.75, 0.4)
+		# Outline keeps it readable over the arena and over centre-screen messages.
+		_zenith_hint.add_theme_constant_override(&"outline_size", 4)
+		_zenith_hint.add_theme_color_override(&"font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+		add_child(_zenith_hint)
 	visible = not _boxes.is_empty() or _abilities.zenith != null
 
 
@@ -82,6 +91,8 @@ func _process(delta: float) -> void:
 	if _zenith_fill == null:
 		return
 	var zenith := _abilities.zenith
+	_zenith_hint.text = _abilities.get_zenith_charge_hint()
+	_zenith_hint.visible = _zenith_hint.text != ""
 	if zenith.is_active():
 		var left := zenith.get_active_left()
 		_zenith_fill.size.x = ZENITH_WIDTH * clampf(left / maxf(zenith.data.duration, 0.01), 0.0, 1.0)

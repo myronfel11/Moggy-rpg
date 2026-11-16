@@ -77,14 +77,35 @@ func set_zenith_charge(value: float) -> void:
 
 ## Called on every peer when an enemy dies (through the "zenith_listeners" group).
 ## Only this machine's own player gains charge: full for a kill made with the Zenith's
-## charging weapon, half for any other kill (its own or a teammate's).
+## charging weapon, and the shares set in ZenithData for other kills (own or a teammate's).
 func on_enemy_killed(value: float, killer_peer: int, weapon_id: StringName) -> void:
 	if player == null or not player.is_local() or zenith == null or zenith.is_active():
 		return
 	var zenith_data := zenith.data as ZenithData
-	var full := killer_peer == player.peer_id and zenith_data != null \
-		and zenith_data.charge_weapon != null and weapon_id == zenith_data.charge_weapon.id
-	set_zenith_charge(zenith_charge + (value if full else value * 0.5))
+	var share := 1.0
+	if zenith_data != null:
+		if killer_peer != player.peer_id:
+			share = zenith_data.team_kill_share
+		elif zenith_data.charge_weapon != null and weapon_id != zenith_data.charge_weapon.id:
+			share = zenith_data.other_weapon_share
+	if share > 0.0:
+		set_zenith_charge(zenith_charge + value * share)
+
+
+## A short hint while Zenith is charging and this player cannot charge it the way they are
+## set up right now, or "".
+func get_zenith_charge_hint() -> String:
+	if zenith == null or zenith.is_active() or zenith_charge >= ZENITH_FULL:
+		return ""
+	var zenith_data := zenith.data as ZenithData
+	if zenith_data == null or zenith_data.charge_weapon == null or zenith_data.other_weapon_share > 0.0:
+		return ""
+	var needed := zenith_data.charge_weapon
+	if not player.carries_weapon(needed):
+		return "Equip %s at the Armory to charge Zenith" % needed.display_name
+	if player.weapon == null or player.weapon.data.id != needed.id:
+		return "Only %s kills charge Zenith [Q]" % needed.display_name
+	return ""
 
 
 ## Owner only, every physics frame.

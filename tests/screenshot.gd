@@ -10,6 +10,7 @@ extends Node
 ##   --when=brute      fighting a Plated Brute (waits for one to appear)
 ##   --when=station    standing at the Fabricator with enough materials
 ##   --when=crafted    just after crafting at the Fabricator
+##   --when=zenith_hint  Venza holding the blade, so the Zenith charge hint shows
 
 const ARENA := preload("res://levels/test_arena/test_arena.tscn")
 ## Give up waiting for the chosen moment after this many extra frames.
@@ -37,6 +38,15 @@ func _ready() -> void:
 	station.position = Vector2(320.0, 96.0)
 	arena.add_child(station)
 	player.input.use_device = false
+	if when == "zenith_hint":
+		# Venza holding a weapon other than her pistols, so the Zenith hint shows.
+		var venza := load("res://characters/data/venza.tres") as CharacterData
+		player.unlock_character(venza)
+		player.set_character(venza)
+		var blade_and_pistols: Array[WeaponData] = [player.weapons[0], venza.signature_weapon]
+		player.set_loadout(blade_and_pistols)
+		player.equip(player.weapons[0])
+		player.abilities.set_zenith_charge(35.0)
 
 	var frame := 0
 	while frame < frames + MAX_EXTRA_FRAMES:
