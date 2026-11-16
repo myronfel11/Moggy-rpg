@@ -351,7 +351,7 @@ func _test_zenith() -> void:
 	await _frames(20)
 
 	_player.equip(_player.weapons[0])
-	_check(abilities.get_zenith_charge_hint().contains("Only Twin Sparrows kills"), "holding another weapon shows a hint")
+	_check(abilities.get_zenith_charge_hint().contains("Hold Twin Sparrows"), "holding another weapon shows a hint")
 	hound = await _spawn_ready(Vector2(345.0, 192.0))
 	_player.input.attack_held = true
 	await _until(func() -> bool: return hound.is_dead(), 240)
@@ -361,7 +361,12 @@ func _test_zenith() -> void:
 	hound = await _spawn_ready(Vector2(345.0, 150.0))
 	hound.hurtbox.receive_hit(HitInfo.new(9999.0))
 	await _frames(5)
-	_check(is_equal_approx(abilities.zenith_charge, HOUND.zenith_value * 1.5), "a kill by someone else gives half (%.1f)" % abilities.zenith_charge)
+	_check(is_equal_approx(abilities.zenith_charge, HOUND.zenith_value), "a kill by someone else gives nothing while she holds another weapon (%.1f)" % abilities.zenith_charge)
+	_player.equip(PISTOLS)
+	hound = await _spawn_ready(Vector2(345.0, 150.0))
+	hound.hurtbox.receive_hit(HitInfo.new(9999.0))
+	await _frames(5)
+	_check(is_equal_approx(abilities.zenith_charge, HOUND.zenith_value * 1.5), "a kill by someone else gives half while she holds the pistols (%.1f)" % abilities.zenith_charge)
 
 	# Without the pistols in either slot, the hint points to the Armory.
 	var saved_loadout := _player.loadout.duplicate()

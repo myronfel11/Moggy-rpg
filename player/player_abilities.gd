@@ -86,6 +86,8 @@ func on_enemy_killed(value: float, killer_peer: int, weapon_id: StringName) -> v
 	if zenith_data != null:
 		if killer_peer != player.peer_id:
 			share = zenith_data.team_kill_share
+			if zenith_data.team_kill_needs_weapon_in_hand and not _holds(zenith_data.charge_weapon):
+				share = 0.0
 		elif zenith_data.charge_weapon != null and weapon_id != zenith_data.charge_weapon.id:
 			share = zenith_data.other_weapon_share
 	if share > 0.0:
@@ -103,9 +105,16 @@ func get_zenith_charge_hint() -> String:
 	var needed := zenith_data.charge_weapon
 	if not player.carries_weapon(needed):
 		return "Equip %s at the Armory to charge Zenith" % needed.display_name
-	if player.weapon == null or player.weapon.data.id != needed.id:
-		return "Only %s kills charge Zenith [Q]" % needed.display_name
+	if not _holds(needed):
+		return "Hold %s to charge Zenith [Q]" % needed.display_name
 	return ""
+
+
+## True if [param data] is the weapon in hand (or no particular weapon is needed).
+func _holds(data: WeaponData) -> bool:
+	if data == null:
+		return true
+	return player.weapon != null and player.weapon.data.id == data.id
 
 
 ## Owner only, every physics frame.

@@ -9,6 +9,7 @@ script = ExtResource("1_data")
 charge_weapon = ExtResource("3_pistols")
 other_weapon_share = 0.0
 team_kill_share = 0.5
+team_kill_needs_weapon_in_hand = true
 required_weapon = ExtResource("3_pistols")
 transform_time = 0.4
 id = &"venza_zenith"

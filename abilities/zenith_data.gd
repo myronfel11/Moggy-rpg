@@ -12,6 +12,8 @@ extends AbilityData
 @export_range(0.0, 1.0) var other_weapon_share := 0.0
 ## Share of the charge for a teammate's kill (0 = none, 0.5 = half).
 @export_range(0.0, 1.0) var team_kill_share := 0.5
+## On: a teammate's kill only counts while this player holds the charge weapon.
+@export var team_kill_needs_weapon_in_hand := true
 ## Zenith can only be used while this weapon is in one of the two loadout slots.
 @export var required_weapon: WeaponData
 ## Seconds of the transformation before the empowered state begins.
