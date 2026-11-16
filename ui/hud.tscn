@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://ui/hud.gd" id="1_hud"]
 [ext_resource type="Script" path="res://ui/ability_bar.gd" id="2_abilities"]
+[ext_resource type="Script" path="res://ui/mouse_icon.gd" id="3_mouse"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -65,14 +66,28 @@ offset_bottom = 248.0
 theme_override_font_sizes/font_size = 8
 horizontal_alignment = 1
 
-[node name="HintLabel" type="Label" parent="."]
+[node name="Hints" type="HBoxContainer" parent="."]
 modulate = Color(1, 1, 1, 0.55)
 offset_left = 8.0
 offset_top = 254.0
 offset_right = 380.0
 offset_bottom = 268.0
+theme_override_constants/separation = 3
+
+[node name="Keys" type="Label" parent="Hints"]
+layout_mode = 2
 theme_override_font_sizes/font_size = 8
-text = "WASD move   Mouse aim   Click attack   Space dash   E use   Q swap   Right click to grapple"
+text = "WASD move   Mouse aim   Click attack   Space dash   E use   Q swap  "
+
+[node name="RightClick" type="Control" parent="Hints"]
+custom_minimum_size = Vector2(8, 12)
+layout_mode = 2
+script = ExtResource("3_mouse")
+
+[node name="Grapple" type="Label" parent="Hints"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 8
+text = "grapple"
 
 [node name="WeaponLabel" type="Label" parent="."]
 offset_left = 340.0
